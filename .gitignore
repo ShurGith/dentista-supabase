@@ -19,3 +19,7 @@ backups
 .env.local
 .env.backup
 .env.old
+volumes/db/pgdata
+node_modules
+*/node_modules
+**/node_modules
