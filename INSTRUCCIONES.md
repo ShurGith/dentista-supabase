@@ -1,5 +1,12 @@
 # Arrancar la aplicación en local
 
+## Metodo corto, pegar en Warp
+
+```bash
+cd /Users/juanjose/Dockers/supabase
+./start-web.sh
+```
+
 Ejecuta los comandos desde la raíz del proyecto. Necesitas Node.js y npm, además de Docker activo.
 
 ## 1. Instalar dependencias y arrancar Supabase
