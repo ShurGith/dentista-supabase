@@ -47,8 +47,8 @@ export const createAppointmentSchema = z.object({
   professional_id: z.string().uuid('Debe seleccionar un odontólogo'),
   operatory_id: z.string().uuid().optional(),
   service_id: z.string().uuid('Debe seleccionar un tratamiento'),
-  start_time: z.string().datetime('Fecha de inicio inválida'),
-  end_time: z.string().datetime('Fecha de fin inválida').optional(),
+  start_time: z.string().datetime({ offset: true, message: 'Fecha de inicio inválida' }),
+  end_time: z.string().datetime({ offset: true, message: 'Fecha de fin inválida' }).optional(),
   duration_minutes: z.number().int().min(10).max(240).optional(),
   status: z.enum([
     'pending',
@@ -72,6 +72,7 @@ export const moveAppointmentSchema = z.object({
   professional_id: z.string().uuid().optional(),
   operatory_id: z.string().uuid().optional(),
   reason: z.string().optional().default('Reprogramación por arrastre en calendario'),
+  notify_whatsapp: z.boolean().default(true),
 });
 
 // 5. Esquema de Redimensionamiento (Resize) en FullCalendar

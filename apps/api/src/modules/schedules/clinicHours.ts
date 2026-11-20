@@ -59,6 +59,10 @@ export function outsideClinicHoursReason(start: Date, end: Date, rows: ClinicDay
   return `La cita queda fuera del horario de apertura del ${dayName.toLowerCase()} (${hours}).`;
 }
 
+export function isAppointmentTooFarInPast(start: Date, now = new Date()) {
+  return start.getTime() < now.getTime() - 3 * 60 * 60 * 1000;
+}
+
 /** Lanza un error 422 si la cita no cae dentro del horario de apertura de la clínica (tabla clinic_schedules). */
 export async function assertWithinClinicHours(startIso: string | Date, endIso: string | Date, clinicId = config.clinicId) {
   if (Number.isNaN(new Date(startIso).getTime()) || Number.isNaN(new Date(endIso).getTime())) {

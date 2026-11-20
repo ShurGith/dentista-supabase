@@ -201,8 +201,8 @@ export class WawpService implements WhatsAppProvider {
         success: false,
         status: 'blocked_dev',
         error: config.wawp.devPhoneNumber
-          ? 'MODO_DEV activo: solo se envían mensajes de WhatsApp al número de pruebas (PHONE_NUMBER_DEV).'
-          : 'MODO_DEV activo sin un PHONE_NUMBER_DEV válido: no se envía ningún mensaje de WhatsApp.',
+          ? 'El mensaje no se ha enviado porque el modo de pruebas está activo.\n\nSolo puedes enviar mensajes al número configurado para pruebas.\n\nPara enviar a pacientes, desactiva el modo de pruebas en el servidor.'
+          : 'El mensaje no se ha enviado porque el modo de pruebas está activo.\n\nNo hay un número de pruebas configurado, por lo que todos los envíos están bloqueados.',
       };
     }
 

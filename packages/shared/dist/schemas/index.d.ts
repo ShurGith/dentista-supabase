@@ -129,11 +129,13 @@ export declare const moveAppointmentSchema: z.ZodObject<{
     professional_id: z.ZodOptional<z.ZodString>;
     operatory_id: z.ZodOptional<z.ZodString>;
     reason: z.ZodDefault<z.ZodOptional<z.ZodString>>;
+    notify_whatsapp: z.ZodDefault<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
     start_time: string;
     end_time: string;
     appointment_id: string;
     reason: string;
+    notify_whatsapp: boolean;
     professional_id?: string | undefined;
     operatory_id?: string | undefined;
 }, {
@@ -143,6 +145,7 @@ export declare const moveAppointmentSchema: z.ZodObject<{
     professional_id?: string | undefined;
     operatory_id?: string | undefined;
     reason?: string | undefined;
+    notify_whatsapp?: boolean | undefined;
 }>;
 export declare const resizeAppointmentSchema: z.ZodObject<{
     appointment_id: z.ZodString;
@@ -166,12 +169,12 @@ export declare const cancelAppointmentSchema: z.ZodObject<{
     notify_whatsapp: z.ZodDefault<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
     reason: string;
-    cancelled_by: "patient" | "clinic";
     notify_whatsapp: boolean;
+    cancelled_by: "patient" | "clinic";
 }, {
     reason: string;
-    cancelled_by?: "patient" | "clinic" | undefined;
     notify_whatsapp?: boolean | undefined;
+    cancelled_by?: "patient" | "clinic" | undefined;
 }>;
 export declare const availabilityQuerySchema: z.ZodObject<{
     clinic_id: z.ZodOptional<z.ZodString>;

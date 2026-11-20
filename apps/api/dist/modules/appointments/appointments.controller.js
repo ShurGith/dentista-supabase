@@ -146,6 +146,7 @@ router.patch('/move', async (req, res, next) => {
             professionalId: validated.professional_id,
             operatoryId: validated.operatory_id,
             reason: validated.reason,
+            notifyWhatsApp: validated.notify_whatsapp,
         });
         res.json({ success: true, data: updated });
     }

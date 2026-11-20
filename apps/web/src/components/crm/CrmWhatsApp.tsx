@@ -125,7 +125,11 @@ export const CrmWhatsApp: React.FC = () => {
       loadMessages(selectedConv.id);
       loadConversations();
     } catch (err: any) {
-      notice.notify(err.message || 'Error enviando mensaje por Wawp.');
+      notice.notify(
+        err.message || 'Error enviando mensaje por Wawp.',
+        'error',
+        err.code === 'BLOCKED_BY_DEV_MODE' ? 'Modo de pruebas activo' : undefined,
+      );
     } finally {
       setSending(false);
     }

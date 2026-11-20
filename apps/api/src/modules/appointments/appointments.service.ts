@@ -1,6 +1,12 @@
 import { config, supabaseAdmin } from '../../config/index.js';
 import { whatsappProvider } from '../whatsapp/whatsapp.provider.js';
-import { assertWithinClinicHours } from '../schedules/clinicHours.js';
+import { assertWithinClinicHours, isAppointmentTooFarInPast } from '../schedules/clinicHours.js';
+
+function assertAppointmentNotTooFarInPast(start: Date) {
+  if (isAppointmentTooFarInPast(start)) {
+    throw Object.assign(new Error('No se pueden programar citas anteriores a hace tres horas.'), { status: 422, code: 'APPOINTMENT_IN_PAST' });
+  }
+}
 
 export class AppointmentsService {
   /**
@@ -100,6 +106,8 @@ export class AppointmentsService {
       ? new Date(input.endTime)
       : new Date(startDate.getTime() + actualDuration * 60000);
 
+    assertAppointmentNotTooFarInPast(startDate);
+
     // Solo dentro del horario de apertura configurado (clinic_schedules)
     await assertWithinClinicHours(startDate, endDate, clinicId);
 
@@ -194,8 +202,10 @@ export class AppointmentsService {
     professionalId?: string;
     operatoryId?: string;
     reason?: string;
+    notifyWhatsApp?: boolean;
     updatedBy?: string;
   }) {
+    assertAppointmentNotTooFarInPast(new Date(params.startTime));
     await assertWithinClinicHours(params.startTime, params.endTime);
 
     const updatePayload: any = {
@@ -223,7 +233,7 @@ export class AppointmentsService {
     if (error) throw error;
 
     // Notificar reprogramación por WhatsApp
-    if (updated?.patient?.phone) {
+    if (params.notifyWhatsApp !== false && updated?.patient?.phone) {
       const newStartDate = new Date(params.startTime);
       const dateFormatted = newStartDate.toLocaleDateString('es-ES', {
         timeZone: config.wawp.appTimezone,

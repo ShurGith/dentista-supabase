@@ -12,6 +12,11 @@ import {
 import { APPOINTMENT_STATUS_COLORS, APPOINTMENT_STATUS_LABELS } from '@clinica-eugenia/shared';
 import { useNoticeModal } from '../ui/NoticeModal.js';
 
+const readableAppointmentError = (message: string | undefined, fallback: string) =>
+  message?.includes('CONFLICT_BLOCKED_SLOT')
+    ? 'Ese horario está bloqueado o corresponde a un festivo. Elige otra fecha u hora.'
+    : message || fallback;
+
 export const CrmCalendar: React.FC = () => {
   const notice = useNoticeModal();
   const calendarRef = useRef<FullCalendar>(null);
@@ -104,6 +109,22 @@ export const CrmCalendar: React.FC = () => {
     const apptId = info.event.id;
     const newStart = info.event.start.toISOString();
     const newEnd = info.event.end.toISOString();
+    if (new Date(newStart).getTime() < Date.now() - 3 * 60 * 60 * 1000) {
+      info.revert();
+      notice.notify('No se pueden programar citas anteriores a hace tres horas.');
+      return;
+    }
+    const patientName = info.event.extendedProps.patientName || 'el paciente';
+    const when = new Date(newStart).toLocaleString('es-ES', {
+      timeZone: 'Europe/Madrid', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
+    });
+    const hasPhone = Boolean(info.event.extendedProps.patient?.phone);
+    const notifyWhatsApp = hasPhone && await notice.confirm(
+      `¿Quieres avisar a ${patientName} por WhatsApp de que su cita pasa al ${when}?`,
+      'Avisar al paciente',
+      'Enviar WhatsApp',
+      { cancelLabel: 'No enviar', tone: 'whatsapp' },
+    );
 
     try {
       await api.moveAppointment({
@@ -111,12 +132,13 @@ export const CrmCalendar: React.FC = () => {
         start_time: newStart,
         end_time: newEnd,
         reason: 'Reprogramación arrastrando en calendario visual',
+        notify_whatsapp: notifyWhatsApp,
       });
-      showToast('Cita reprogramada y notificada por WhatsApp correctamente');
+      showToast(notifyWhatsApp ? 'Cita reprogramada y aviso de WhatsApp solicitado' : 'Cita reprogramada');
       loadData();
     } catch (err: any) {
       info.revert();
-      showToast(err.message || 'No se puede mover la cita: hueco ocupado o fuera de horario.', 'err');
+      showToast(readableAppointmentError(err.message, 'No se puede mover la cita: hueco ocupado o fuera de horario.'), 'err');
     }
   };
 
@@ -138,7 +160,7 @@ export const CrmCalendar: React.FC = () => {
       loadData();
     } catch (err: any) {
       info.revert();
-      showToast(err.message || 'No se puede cambiar la duración: entra en conflicto con otra cita.', 'err');
+      showToast(readableAppointmentError(err.message, 'No se puede cambiar la duración: entra en conflicto con otra cita.'), 'err');
     }
   };
 
@@ -209,6 +231,50 @@ export const CrmCalendar: React.FC = () => {
     }
   };
 
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const handleSendAppointmentWhatsApp = async () => {
+    const appt = selectedAppointment;
+    const phone = appt?.patient?.phone;
+    if (!appt || !phone || sendingWhatsApp) return;
+
+    const name = [appt.patient?.first_name, appt.patient?.last_name].filter(Boolean).join(' ') || 'el paciente';
+    const start = new Date(appt.start_time);
+    const confirmed = await notice.confirm(
+      `Se enviará a ${name} la confirmación de su cita por WhatsApp.`,
+      'Enviar confirmación',
+      'Enviar WhatsApp',
+      { cancelLabel: 'Cancelar', tone: 'whatsapp' },
+    );
+    if (!confirmed) return;
+
+    setSendingWhatsApp(true);
+    try {
+      await api.sendWhatsAppMessage({
+        phone_number: phone,
+        content: 'Confirmación de cita',
+        template_code: 'cita_confirmada',
+        template_variables: {
+          nombre: appt.patient.first_name,
+          fecha: start.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+          hora: start.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit' }),
+          profesional: `${appt.professional?.first_name || ''} ${appt.professional?.last_name || ''}`.trim(),
+          servicio: appt.service?.name || 'Tratamiento dental',
+          enlace_gestion: `${window.location.origin}/reserva/gestion/${appt.id}`,
+        },
+        appointment_id: appt.id,
+      });
+      showToast('Confirmación enviada por WhatsApp');
+    } catch (err: any) {
+      notice.notify(
+        err.message || 'No se pudo enviar el WhatsApp con Wawp.',
+        'error',
+        err.code === 'BLOCKED_BY_DEV_MODE' ? 'Modo de pruebas activo' : undefined,
+      );
+    } finally {
+      setSendingWhatsApp(false);
+    }
+  };
+
   // Eliminar cita: 1) confirmar el borrado; 2) preguntar si se avisa al paciente por WhatsApp.
   const [deleting, setDeleting] = useState(false);
   const handleDeleteAppointment = async () => {
@@ -223,6 +289,7 @@ export const CrmCalendar: React.FC = () => {
       'También se borran sus recordatorios pendientes. Esta acción no se puede deshacer.',
       'Eliminar cita',
       'Eliminar cita',
+      { cancelLabel: 'Volver' },
     );
     if (!confirmed) return;
 
@@ -455,21 +522,21 @@ export const CrmCalendar: React.FC = () => {
                   onClick={() => handleChangeStatus('cancelled_by_patient', 'Solicitud del paciente')}
                   className="bg-red-50 hover:bg-red-100 text-red-800 font-bold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5"
                 >
-                  <XCircle className="w-3.5 h-3.5" /> Cancelar
+                  <XCircle className="w-3.5 h-3.5" /> Volver
                 </button>
               </div>
             </div>
 
             {/* WhatsApp Trigger */}
             <div className="pt-2 border-t border-slate-100">
-              <a
-                href={`https://wa.me/${selectedAppointment.patient?.phone?.replace(/[^0-9]/g, '')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-2"
+              <button
+                type="button"
+                onClick={handleSendAppointmentWhatsApp}
+                disabled={!selectedAppointment.patient?.phone || sendingWhatsApp}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-xs py-3 rounded-xl transition flex items-center justify-center gap-2"
               >
-                <MessageSquare className="w-4 h-4" /> Enviar WhatsApp con Wawp
-              </a>
+                <MessageSquare className="w-4 h-4" /> {sendingWhatsApp ? 'Enviando WhatsApp…' : 'Enviar WhatsApp con Wawp'}
+              </button>
             </div>
 
             {/* Eliminar cita (con confirmación y aviso opcional por WhatsApp) */}
@@ -477,7 +544,7 @@ export const CrmCalendar: React.FC = () => {
               type="button"
               onClick={handleDeleteAppointment}
               disabled={deleting}
-              className="w-full border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 disabled:opacity-50 font-bold text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-2"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-2.5 text-xs font-bold text-white shadow-sm transition-all duration-200 ease-out hover:-translate-y-px hover:bg-red-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 active:translate-y-0 active:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:bg-red-600 disabled:hover:shadow-sm"
             >
               <Trash2 className="w-4 h-4" /> {deleting ? 'Eliminando…' : 'Eliminar cita'}
             </button>
@@ -490,6 +557,7 @@ export const CrmCalendar: React.FC = () => {
         <CreateAppointmentModal
           isOpen={isCreateOpen}
           initialDate={createSlotDate}
+          clinicWeek={clinicWeek}
           patients={patients}
           professionals={professionals}
           services={services}
@@ -508,7 +576,7 @@ export const CrmCalendar: React.FC = () => {
 
 // Modal secundario para crear cita
 const CreateAppointmentModal: React.FC<any> = ({
-  isOpen, initialDate, patients, professionals, services, onClose, onSuccess
+  isOpen, initialDate, clinicWeek, patients, professionals, services, onClose, onSuccess
 }) => {
   const notice = useNoticeModal();
   const [patientId, setPatientId] = useState(patients[0]?.id || '');
@@ -518,6 +586,54 @@ const CreateAppointmentModal: React.FC<any> = ({
   const [timeStr, setTimeStr] = useState(initialDate && initialDate.includes('T') ? initialDate.split('T')[1].slice(0, 5) : '10:00');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [availableSlots, setAvailableSlots] = useState<any[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+
+  const dateOptions = useMemo(() => {
+    const cutoff = Date.now() - 3 * 60 * 60 * 1000;
+    return Array.from({ length: 90 }, (_, offset) => {
+      const date = new Date();
+      date.setDate(date.getDate() + offset);
+      const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const row = clinicWeek?.find((day: any) => day.day_of_week === date.getDay());
+      const close = row?.close_time?.slice(0, 5);
+      const enabled = Boolean(row && !row.is_closed && close && new Date(`${value}T${close}:00`).getTime() > cutoff);
+      return {
+        value,
+        enabled,
+        label: date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }),
+      };
+    });
+  }, [clinicWeek]);
+
+  useEffect(() => {
+    if (!dateOptions.some(option => option.value === dateStr && option.enabled)) {
+      setDateStr(dateOptions.find(option => option.enabled)?.value || '');
+    }
+  }, [dateOptions, dateStr]);
+
+  useEffect(() => {
+    if (!dateStr || !serviceId || !profId) {
+      setAvailableSlots([]);
+      return;
+    }
+    let active = true;
+    setLoadingSlots(true);
+    api.getAvailableSlots({ service_id: serviceId, professional_id: profId, date: dateStr })
+      .then(slots => { if (active) setAvailableSlots(slots); })
+      .catch(() => { if (active) setAvailableSlots([]); })
+      .finally(() => { if (active) setLoadingSlots(false); });
+    return () => { active = false; };
+  }, [dateStr, serviceId, profId]);
+
+  useEffect(() => {
+    if (availableSlots.length && !availableSlots.some(slot => slot.time_label === timeStr)) {
+      setTimeStr(availableSlots[0].time_label);
+    }
+  }, [availableSlots, timeStr]);
+
+  const availableTimes = new Set(availableSlots.map(slot => slot.time_label));
+  const selectedHour = timeStr.slice(0, 2);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -535,7 +651,7 @@ const CreateAppointmentModal: React.FC<any> = ({
       });
       onSuccess();
     } catch (err: any) {
-      notice.notify(err.message || 'Error creando la cita. Puede existir solapamiento de horario.');
+      notice.notify(readableAppointmentError(err.message, 'Error creando la cita. Puede existir solapamiento de horario.'));
     } finally {
       setLoading(false);
     }
@@ -593,28 +709,50 @@ const CreateAppointmentModal: React.FC<any> = ({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="block font-bold text-slate-700 mb-1">Fecha *</label>
-              <input
-                type="date"
+              <select
                 required
                 value={dateStr}
                 onChange={e => setDateStr(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs"
-              />
+                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs bg-white"
+              >
+                {dateOptions.map(option => <option key={option.value} value={option.value} disabled={!option.enabled}>{option.label}</option>)}
+              </select>
             </div>
             <div>
               <label className="block font-bold text-slate-700 mb-1">Hora *</label>
-              <input
-                type="time"
+              <select
                 required
-                value={timeStr}
-                onChange={e => setTimeStr(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs"
-              />
+                value={selectedHour}
+                onChange={e => setTimeStr(availableSlots.find(slot => slot.time_label.startsWith(`${e.target.value}:`))?.time_label || `${e.target.value}:00`)}
+                disabled={loadingSlots || availableSlots.length === 0}
+                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs bg-white disabled:bg-slate-100"
+              >
+                {Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, '0')).map(hour => (
+                  <option key={hour} value={hour} disabled={!Array.from(availableTimes).some(time => time.startsWith(`${hour}:`))}>{hour}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">Minutos *</label>
+              <select
+                required
+                value={timeStr.slice(3, 5)}
+                onChange={e => setTimeStr(`${selectedHour}:${e.target.value}`)}
+                disabled={loadingSlots || availableSlots.length === 0}
+                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs bg-white disabled:bg-slate-100"
+              >
+                {[0, 15, 30, 45].map(minute => {
+                  const value = String(minute).padStart(2, '0');
+                  return <option key={value} value={value} disabled={!availableTimes.has(`${selectedHour}:${value}`)}>{value}</option>;
+                })}
+              </select>
             </div>
           </div>
+          {loadingSlots && <p className="text-[11px] text-slate-400">Comprobando huecos disponibles…</p>}
+          {!loadingSlots && dateStr && availableSlots.length === 0 && <p className="text-[11px] text-amber-700">No hay huecos disponibles en esa fecha para este tratamiento y odontólogo.</p>}
 
           <div>
             <label className="block font-bold text-slate-700 mb-1">Notas:</label>
@@ -637,7 +775,7 @@ const CreateAppointmentModal: React.FC<any> = ({
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !availableTimes.has(timeStr)}
               className="bg-brand-600 hover:bg-brand-700 text-white font-bold px-5 py-2.5 rounded-xl transition"
             >
               {loading ? 'Guardando...' : 'Crear Cita'}

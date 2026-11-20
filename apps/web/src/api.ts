@@ -16,7 +16,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     if (res.status === 401 && !url.startsWith('/auth/')) {
       window.dispatchEvent(new CustomEvent(CRM_UNAUTHORIZED_EVENT));
     }
-    throw Object.assign(new Error(json.message || 'Error en la petición.'), { status: res.status });
+    throw Object.assign(new Error(json.message || 'Error en la petición.'), { status: res.status, code: json.error });
   }
   return json.data !== undefined ? json.data : json;
 }
@@ -86,7 +86,7 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(data),
   }),
-  moveAppointment: (data: { appointment_id: string; start_time: string; end_time: string; professional_id?: string; operatory_id?: string }) =>
+  moveAppointment: (data: { appointment_id: string; start_time: string; end_time: string; professional_id?: string; operatory_id?: string; reason?: string; notify_whatsapp?: boolean }) =>
     fetchJson<any>('/appointments/move', {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -135,7 +135,7 @@ export const api = {
   getConversations: () => fetchJson<any[]>('/whatsapp/conversations'),
   getConversationMessages: (convId: string) => fetchJson<any[]>(`/whatsapp/conversations/${convId}/messages`),
   deleteConversation: (convId: string) => fetchJson<{ id: string }>(`/whatsapp/conversations/${convId}`, { method: 'DELETE' }),
-  sendWhatsAppMessage: (data: { conversation_id?: string; phone_number: string; content: string; template_code?: string; template_variables?: any }) =>
+  sendWhatsAppMessage: (data: { conversation_id?: string; phone_number: string; content: string; template_code?: string; template_variables?: Record<string, string>; appointment_id?: string }) =>
     fetchJson<any>('/whatsapp/messages/send', {
       method: 'POST',
       body: JSON.stringify(data),
