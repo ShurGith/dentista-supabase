@@ -1,0 +1,600 @@
+Actúa como un equipo senior de backend Node.js/TypeScript, arquitectura de software, integraciones de APIs, seguridad y producto.
+
+Vas a realizar un conjunto de retoques y ajustes sobre una aplicación existente de gestión de citas para una clínica odontológica.
+
+La aplicación ya dispone de:
+- Frontend web en React + Vite + TypeScript + Tailwind CSS + shadcn/ui.
+- App móvil en React Native con Expo.
+- Backend en Node.js con TypeScript.
+- Supabase como base de datos, autenticación, Storage y Row Level Security.
+- Panel de administración tipo CRM.
+- Calendario de citas con arrastrar, soltar y redimensionar.
+- Gestión de pacientes, profesionales, servicios, horarios, usuarios, roles y permisos.
+- Web pública de la clínica.
+- Integración base con Wawp para WhatsApp.
+
+No modifiques ni elimines funcionalidades existentes salvo que sea necesario para implementar correctamente los cambios solicitados.
+
+OBJETIVO DE ESTE RETOQUE
+
+Centralizar toda la gestión de WhatsApp en el backend, mejorar la integración con Wawp, añadir plantillas editables desde el panel de administración y automatizar los mensajes relacionados con el ciclo de vida de una cita.
+
+La gestión de WhatsApp debe realizarse desde el propio backend. El frontend nunca debe contener credenciales, tokens, secretos ni realizar llamadas directas a la API de Wawp.
+
+1. CONFIGURACIÓN DE WAWP EN EL BACKEND
+
+Añade o actualiza la configuración de Wawp en el archivo `.env.example` y en la configuración del backend.
+
+Utiliza estas variables de entorno, con estos nombres exactos:
+
+WAWP_DRIVER=api
+WAWP_BASE_URL=https://api.wawp.net
+WAWP_ACCESS_TOKEN=wawp_access_token
+WAWP_INSTANCE_ID=WAWP_INSTANCE_ID
+WAWP_APP_TIMEZONE=Europe/Madrid
+WAWP_TUNNEL_URL=https://UN_TUNEL_GROK.ngrok-free.dev/api/wawp/webhook?secret=un-secreto
+WAWP_WEBHOOK_SECRET=un-secreto
+
+Requisitos:
+
+- Crea un módulo de configuración centralizado para cargar y validar estas variables al arrancar el backend.
+- Valida que las variables obligatorias existan y tengan un formato razonable.
+- No incluyas valores reales de tokens, secretos ni identificadores en el repositorio.
+- Añade un archivo `.env.example` con las variables anteriores y valores de ejemplo claramente identificables como ficticios.
+- Añade `.env` al `.gitignore` si aún no lo está.
+- Usa `WAWP_APP_TIMEZONE` para programar recordatorios, calcular horas locales y formatear fechas en los mensajes.
+- Usa `WAWP_TUNNEL_URL` solo como URL pública del webhook durante desarrollo local.
+- Usa `WAWP_WEBHOOK_SECRET` para validar la autenticidad de las peticiones entrantes del webhook.
+- Crea un adaptador o servicio `WawpService` que encapsule toda la comunicación con la API de Wawp.
+- El resto del backend no debe conocer detalles internos de Wawp; debe depender de una interfaz como `WhatsAppProvider`.
+- Deja preparada la posibilidad de cambiar de proveedor en el futuro mediante el valor de `WAWP_DRIVER`.
+- Implementa logging estructurado para envíos, respuestas, errores, reintentos y eventos de webhook.
+- No registres el contenido completo de mensajes ni datos personales sensibles en los logs por defecto.
+- Implementa reintentos con backoff exponencial para errores temporales de red o de la API.
+- Implementa idempotencia para evitar enviar el mismo mensaje dos veces.
+
+2. ENVÍO DE WHATSAPP DESDE EL PANEL
+
+Añade o mejora la sección de WhatsApp dentro del panel de administración.
+
+El personal autorizado debe poder enviar mensajes WhatsApp desde el panel, siempre a través del backend y la API de Wawp.
+
+Funcionalidades obligatorias:
+
+- Enviar un mensaje manual a un paciente desde su ficha.
+- Enviar un mensaje manual desde la bandeja de conversaciones WhatsApp.
+- Enviar un mensaje relacionado con una cita concreta.
+- Seleccionar una plantilla existente o redactar un mensaje libre, si el rol y los permisos lo permiten.
+- Completar automáticamente las variables de la plantilla con datos del paciente, cita, profesional y clínica.
+- Previsualizar el mensaje antes de enviarlo.
+- Confirmar el envío antes de ejecutarlo.
+- Mostrar el estado del mensaje: pendiente, enviado, entregado, leído, fallido o cancelado.
+- Mostrar el error devuelto por Wawp cuando el envío falle.
+- Permitir reintentar un envío fallido.
+- Permitir programar un envío para una fecha y hora futura.
+- Registrar todos los envíos en `message_logs`.
+- Registrar el usuario que envió cada mensaje.
+- Registrar el identificador devuelto por Wawp, si existe.
+- Registrar el estado de entrega y lectura cuando Wawp lo notifique mediante webhook.
+- Aplicar permisos granulares para enviar mensajes, usar plantillas, enviar campañas y gestionar plantillas.
+
+No permitas que el frontend llame directamente a Wawp. Todas las peticiones deben pasar por endpoints propios del backend, por ejemplo:
+
+- POST /api/v1/whatsapp/messages
+- POST /api/v1/whatsapp/messages/:id/retry
+- GET /api/v1/whatsapp/conversations
+- GET /api/v1/whatsapp/conversations/:id/messages
+- POST /api/v1/whatsapp/conversations/:id/messages
+- POST /api/v1/whatsapp/templates
+- PUT /api/v1/whatsapp/templates/:id
+- DELETE /api/v1/whatsapp/templates/:id
+- POST /api/v1/wawp/webhook
+
+3. PLANTILLAS DE WHATSAPP EDITABLES
+
+Crea un sistema completo de plantillas de WhatsApp gestionable desde el panel de administración.
+
+El administrador debe poder:
+- Añadir plantillas.
+- Editar plantillas.
+- Eliminar plantillas.
+- Duplicar plantillas.
+- Activar o desactivar plantillas.
+- Previsualizar plantillas.
+- Probar una plantilla con datos de ejemplo.
+- Configurar si una plantilla incluye botones.
+- Añadir, editar, eliminar y ordenar botones.
+- Definir el texto de cada botón.
+- Definir el tipo de acción de cada botón.
+- Definir variables dinámicas dentro del texto.
+
+Cada plantilla debe tener:
+- Nombre interno.
+- Nombre visible para el equipo.
+- Tipo o categoría.
+- Asunto o propósito.
+- Contenido del mensaje.
+- Variables disponibles.
+- Estado: activa o inactiva.
+- Configuración de botones.
+- Idioma.
+- Canal: WhatsApp.
+- Fecha de creación y última modificación.
+- Usuario creador y usuario modificador.
+
+Variables mínimas que deben poder usarse en las plantillas:
+- {{patient_first_name}}
+- {{patient_last_name}}
+- {{patient_full_name}}
+- {{clinic_name}}
+- {{appointment_date}}
+- {{appointment_time}}
+- {{appointment_datetime}}
+- {{professional_name}}
+- {{service_name}}
+- {{clinic_phone}}
+- {{clinic_address}}
+- {{confirm_url}}
+- {{reschedule_url}}
+- {{cancel_url}}
+
+Las variables deben sustituirse en el backend antes de enviar el mensaje. Nunca permitas que el paciente pueda manipular variables, identificadores ni enlaces.
+
+4. PLANTILLAS INICIALES OBLIGATORIAS
+
+Crea estas cuatro plantillas iniciales y déjalas disponibles en el seed inicial de la base de datos.
+
+4.1 Plantilla de recordatorio de cita
+
+Nombre interno:
+`appointment_reminder`
+
+Propósito:
+Enviar un recordatorio automático antes de una cita.
+
+Debe incluir tres botones:
+
+1. Botón de confirmación de cita.
+- Texto configurable, por ejemplo: “Confirmar cita”.
+- Acción: confirmar la cita.
+- Debe actualizar el estado de la cita a confirmada.
+- Debe registrar la acción en el historial de la cita.
+- Debe notificar al panel mediante Supabase Realtime si está implementado.
+
+2. Botón de solicitud de cambio de cita.
+- Texto configurable, por ejemplo: “Cambiar cita”.
+- Acción: solicitar cambio de cita.
+- Debe abrir un flujo para que el paciente solicite una nueva fecha y hora.
+- Debe crear una solicitud de reprogramación pendiente.
+- Debe enviar automáticamente la plantilla de cambio de cita.
+
+3. Botón de anulación de cita.
+- Texto configurable, por ejemplo: “Anular cita”.
+- Acción: anular la cita.
+- Debe solicitar confirmación antes de cancelar la cita.
+- Debe actualizar el estado de la cita a cancelada por paciente.
+- Debe enviar automáticamente la plantilla informativa de anulación.
+
+El texto base de la plantilla debe poder incluir, por ejemplo:
+“Hola {{patient_first_name}}, te recordamos tu cita en {{clinic_name}} el {{appointment_date}} a las {{appointment_time}} con {{professional_name}} para {{service_name}}. ¿Confirmas tu asistencia?”
+
+4.2 Plantilla de confirmación de cita creada
+
+Nombre interno:
+`appointment_created_confirmation`
+
+Propósito:
+Enviar automáticamente cuando se crea una nueva cita.
+
+Debe incluir los mismos tres botones que la plantilla de recordatorio:
+
+1. Confirmar cita.
+2. Cambiar cita.
+3. Anular cita.
+
+El texto base debe poder incluir, por ejemplo:
+“Hola {{patient_first_name}}, tu cita en {{clinic_name}} ha sido creada para el {{appointment_date}} a las {{appointment_time}} con {{professional_name}} para {{service_name}}. ¿Confirmas tu asistencia?”
+
+4.3 Plantilla de cambio de cita
+
+Nombre interno:
+`appointment_reschedule_requested`
+
+Propósito:
+Enviar automáticamente cuando el paciente solicita un cambio de cita.
+
+No debe incluir botones.
+
+El texto base debe poder incluir, por ejemplo:
+“Hola {{patient_first_name}}, hemos recibido tu solicitud para cambiar tu cita del {{appointment_date}} a las {{appointment_time}}. Nuestro equipo se pondrá en contacto contigo para proponer una nueva fecha y hora. Gracias por tu paciencia.”
+
+4.4 Plantilla informativa de anulación
+
+Nombre interno:
+`appointment_cancelled_confirmation`
+
+Propósito:
+Enviar automáticamente cuando el paciente anula una cita.
+
+No debe incluir botones.
+
+El texto base debe poder incluir, por ejemplo:
+“Hola {{patient_first_name}}, tu cita del {{appointment_date}} a las {{appointment_time}} en {{clinic_name}} ha sido anulada correctamente. Si deseas reservar una nueva cita, estaremos encantados de atenderte.”
+
+5. GESTIÓN DE BOTONES EN LAS PLANTILLAS
+
+El panel debe permitir configurar botones por plantilla.
+
+Para cada botón, el administrador debe poder definir:
+- Texto visible del botón.
+- Orden del botón.
+- Estado activo o inactivo.
+- Tipo de acción.
+- Acción asociada.
+- URL o endpoint de destino, si aplica.
+- Mensaje automático que se enviará tras la acción, si aplica.
+
+Tipos de acción soportados:
+- Confirmar cita.
+- Solicitar cambio de cita.
+- Anular cita.
+- Abrir enlace externo.
+- Abrir la app móvil.
+- Abrir una página web.
+- Enviar una respuesta predefinida por WhatsApp.
+
+Reglas:
+- Una plantilla puede tener cero, uno, dos o tres botones.
+- El número máximo de botones debe respetar las limitaciones reales de la API o del tipo de mensaje utilizado por Wawp.
+- Si la API no permite tres botones interactivos en un mismo mensaje, implementa una alternativa segura, por ejemplo botones de respuesta rápida, enlaces firmados o un menú de opciones.
+- Los botones deben generar enlaces únicos, firmados y con expiración para confirmar, reprogramar o cancelar.
+- Los enlaces deben incluir un token seguro, el identificador de la cita y una fecha de expiración.
+- No permitas que un enlace pueda reutilizarse después de que la cita haya cambiado de estado.
+- Registra cada pulsación de botón, la acción realizada, el usuario o paciente asociado, la fecha y el resultado.
+
+6. AUTOMATIZACIONES DE WHATSAPP
+
+Implementa los siguientes flujos automáticos desde el backend.
+
+6.1 Confirmación al crear una cita
+- Cuando se crea una cita, el backend debe enviar automáticamente la plantilla `appointment_created_confirmation`.
+- La plantilla debe incluir los tres botones: confirmar, cambiar y anular.
+- El envío debe registrarse en `message_logs`.
+- Si el envío falla, debe quedar registrado como fallido y poder reintentarse.
+- El administrador debe poder activar o desactivar este envío automático desde la configuración.
+
+6.2 Recordatorio antes de la cita
+- Crea un job programado que revise periódicamente las citas próximas.
+- El job debe enviar la plantilla `appointment_reminder` según la configuración de la clínica.
+- Permite configurar varios recordatorios, por ejemplo 24 horas antes y 2 horas antes.
+- Evita duplicados mediante un identificador único por cita, plantilla y envío programado.
+- Respeta la zona horaria definida en `WAWP_APP_TIMEZONE`.
+- Si el paciente ya confirmó, canceló o solicitó un cambio, no envíes recordatorios innecesarios.
+- Si el envío falla, reintenta con backoff y registra el error.
+- El administrador debe poder activar o desactivar los recordatorios y modificar los intervalos.
+
+6.3 Cambio de cita solicitado
+- Cuando el paciente pulsa “Cambiar cita”, el backend debe:
+  - Crear una solicitud de reprogramación pendiente.
+  - Actualizar el estado de la cita a “en espera” o a un estado equivalente.
+  - Enviar automáticamente la plantilla `appointment_reschedule_requested`.
+  - Notificar al personal autorizado en el panel.
+  - Registrar la acción y el mensaje enviado.
+
+6.4 Anulación de cita
+- Cuando el paciente pulsa “Anular cita”, el backend debe:
+  - Solicitar confirmación explícita antes de anular.
+  - Actualizar el estado de la cita a “cancelada por paciente”.
+  - Enviar automáticamente la plantilla `appointment_cancelled_confirmation`.
+  - Notificar al personal autorizado en el panel.
+  - Registrar la acción y el mensaje enviado.
+
+6.5 Reprogramación confirmada
+- Cuando recepción o un dentista reprograma una cita desde el calendario, el backend debe poder enviar un aviso automático al paciente.
+- El aviso debe usar una plantilla editable.
+- El administrador debe poder activar o desactivar este aviso.
+
+7. WEBHOOK DE WAWP
+
+Crea un endpoint seguro para recibir eventos de Wawp:
+
+`POST /api/wawp/webhook`
+
+Requisitos:
+- Valida el secreto recibido mediante `WAWP_WEBHOOK_SECRET`.
+- Rechaza peticiones sin firma, token o secreto válido.
+- Implementa idempotencia para evitar procesar el mismo evento dos veces.
+- Guarda cada evento recibido en `webhook_events`.
+- Procesa los eventos de forma asíncrona cuando sea posible.
+- Actualiza el estado de los mensajes enviados: enviado, entregado, leído o fallido.
+- Guarda los mensajes entrantes en `whatsapp_messages`.
+- Asocia cada mensaje entrante al paciente mediante el número de teléfono.
+- Si no existe el paciente, crea un contacto pendiente de revisión o lo asocia a un paciente existente según la configuración.
+- Actualiza la conversación correspondiente en `whatsapp_conversations`.
+- Actualiza el estado de una cita cuando el paciente confirma, solicita cambio o anula mediante un botón o enlace.
+- Notifica al panel en tiempo real mediante Supabase Realtime, si está disponible.
+- Registra errores sin interrumpir el procesamiento del resto de eventos.
+- Devuelve una respuesta rápida al webhook para evitar timeouts.
+- No expongas información sensible en los logs ni en las respuestas de error.
+
+8. BASE DE DATOS SUPABASE
+
+Añade o actualiza las siguientes tablas mediante migraciones SQL versionadas.
+
+8.1 message_templates
+- id
+- clinic_id
+- internal_name
+- display_name
+- category
+- purpose
+- body
+- language
+- is_active
+- has_buttons
+- created_by
+- updated_by
+- created_at
+- updated_at
+- deleted_at
+
+8.2 message_template_buttons
+- id
+- template_id
+- label
+- action_type
+- action_value
+- position
+- is_active
+- created_at
+- updated_at
+
+8.3 message_template_variables
+- id
+- template_id
+- variable_key
+- label
+- description
+- is_required
+- created_at
+
+8.4 message_logs
+- id
+- clinic_id
+- patient_id
+- appointment_id
+- template_id
+- conversation_id
+- direction
+- channel
+- provider
+- provider_message_id
+- status
+- error_code
+- error_message
+- body_sent
+- variables_used
+- buttons_sent
+- sent_by
+- scheduled_at
+- sent_at
+- delivered_at
+- read_at
+- failed_at
+- retry_count
+- idempotency_key
+- created_at
+- updated_at
+
+8.5 appointment_reminders
+- id
+- clinic_id
+- appointment_id
+- template_id
+- send_at
+- status
+- message_log_id
+- attempts
+- last_error
+- created_at
+- updated_at
+
+8.6 appointment_action_tokens
+- id
+- appointment_id
+- patient_id
+- action_type
+- token_hash
+- expires_at
+- used_at
+- created_by
+- created_at
+
+8.7 appointment_reschedule_requests
+- id
+- clinic_id
+- patient_id
+- appointment_id
+- requested_by
+- status
+- preferred_date
+- preferred_time
+- notes
+- created_at
+- updated_at
+
+8.8 webhook_events
+- id
+- provider
+- event_type
+- external_event_id
+- payload
+- signature_valid
+- processed_at
+- status
+- error_message
+- created_at
+
+Define:
+- Claves foráneas, índices y restricciones.
+- Enums para tipos de plantilla, estados de mensaje, tipos de acción y estados de recordatorio.
+- Políticas RLS por rol y permiso.
+- Índices para `idempotency_key`, `provider_message_id`, `appointment_id`, `patient_id`, `send_at` y `status`.
+- Funciones o triggers para evitar envíos duplicados.
+- Funciones para generar y validar tokens de confirmación, cambio y anulación.
+- Soft delete para plantillas.
+- Auditoría de creación, edición y eliminación de plantillas.
+
+9. PERMISOS DE WHATSAPP
+
+Añade o confirma estos permisos en el sistema de usuarios y roles:
+
+- whatsapp.view_conversations
+- whatsapp.send_message
+- whatsapp.use_templates
+- whatsapp.manage_templates
+- whatsapp.send_campaigns
+- whatsapp.view_message_logs
+- whatsapp.retry_failed_messages
+- whatsapp.manage_automations
+- whatsapp.manage_webhook
+- whatsapp.view_sensitive_messages
+
+Asigna los permisos por defecto así:
+- Superadmin: todos.
+- Administrador: todos excepto, opcionalmente, la gestión del webhook.
+- Recepción: ver conversaciones, enviar mensajes, usar plantillas y reintentar envíos.
+- Dentista: ver conversaciones relacionadas con sus pacientes y enviar mensajes, si se le autoriza.
+- Recepcionista limitado: enviar mensajes usando plantillas autorizadas.
+- Solo lectura: únicamente ver conversaciones y mensajes autorizados.
+
+10. INTERFAZ DEL PANEL
+
+Crea o actualiza estas pantallas en el panel de administración:
+
+- WhatsApp:
+  - Bandeja de conversaciones.
+  - Conversación individual.
+  - Envío manual de mensajes.
+  - Selección de plantilla.
+  - Previsualización con variables sustituidas.
+  - Historial de envíos.
+  - Estados de entrega y lectura.
+  - Reintentos de mensajes fallidos.
+
+- Plantillas de WhatsApp:
+  - Listado de plantillas.
+  - Crear plantilla.
+  - Editar plantilla.
+  - Eliminar plantilla.
+  - Duplicar plantilla.
+  - Activar o desactivar plantilla.
+  - Editor de contenido con variables.
+  - Editor visual de botones.
+  - Previsualización del mensaje en formato WhatsApp.
+  - Prueba de envío a un número autorizado.
+
+- Automatizaciones:
+  - Activar o desactivar recordatorios.
+  - Configurar intervalos de recordatorio.
+  - Activar o desactivar confirmación de cita creada.
+  - Activar o desactivar aviso de reprogramación.
+  - Activar o desactivar aviso de anulación.
+  - Ver historial de automatizaciones.
+  - Ver errores y reintentos.
+
+- Configuración de Wawp:
+  - Estado de conexión.
+  - Número de WhatsApp asociado.
+  - Estado de la instancia.
+  - URL del webhook.
+  - Estado del webhook.
+  - Últimos eventos recibidos.
+  - Últimos errores.
+  - Botón para probar la conexión con Wawp.
+  - Botón para enviar un mensaje de prueba a un número autorizado.
+
+11. SEGURIDAD
+
+- Nunca almacenes ni expongas `WAWP_ACCESS_TOKEN`, `WAWP_INSTANCE_ID` ni `WAWP_WEBHOOK_SECRET` en el frontend.
+- Nunca incluyas estos valores en respuestas de API, logs, mensajes de error o repositorio.
+- Valida todas las peticiones del webhook mediante el secreto configurado.
+- Usa HTTPS obligatorio en producción.
+- Implementa rate limiting en los endpoints de envío y webhook.
+- Implementa idempotencia en todos los envíos y webhooks.
+- Valida que el paciente tenga permiso para realizar la acción asociada a un botón o enlace.
+- Expira los enlaces de confirmación, cambio y anulación.
+- Registra todos los accesos y acciones relacionadas con WhatsApp en `audit_logs`.
+- Cumple RGPD: minimización de datos, consentimiento, derecho de acceso, rectificación, supresión y registro de comunicaciones.
+- No envíes mensajes masivos sin control, límites y registro.
+- Usa un número de prueba de Wawp durante el desarrollo para evitar restricciones o bloqueos de WhatsApp.
+- Los enlaces de los botones deben usar tokens únicos, firmados y con caducidad. Así, aunque alguien reenvíe o manipule un enlace, no podrá confirmar, cambiar ni anular una cita ajena ni reutilizar una acción ya ejecutada.
+
+
+12. ENTREGABLES
+
+Genera o actualiza:
+
+1. Módulo backend `wawp`:
+- Cliente HTTP para Wawp.
+- Servicio de envío de mensajes.
+- Servicio de plantillas.
+- Servicio de webhook.
+- Servicio de automatizaciones.
+- Servicio de tokens de acción.
+- Manejo de errores y reintentos.
+- Tests unitarios y de integración.
+
+
+2. Endpoints backend:
+- Envío manual de WhatsApp.
+- Reintento de mensajes.
+- CRUD de plantillas.
+- CRUD de botones de plantilla.
+- Webhook de Wawp.
+- Confirmación, cambio y anulación mediante token.
+- Consulta de conversaciones y mensajes.
+- Configuración de automatizaciones.
+
+3. Frontend del panel:
+- Sección WhatsApp.
+- Bandeja de conversaciones.
+- Editor de plantillas.
+- Editor de botones.
+- Previsualización de plantillas.
+- Historial de mensajes.
+- Configuración de automatizaciones.
+- Configuración de Wawp.
+
+5. Documentación:
+- README actualizado en español.
+- Explicación de variables de entorno.
+- Diagrama del flujo de WhatsApp.
+- Explicación del webhook.
+- Explicación de plantillas y botones.
+- Guía de pruebas con número de prueba.
+- Checklist de despliegue a producción.
+
+13. REGLAS FINALES
+
+- No inventes endpoints, campos, firmas ni formatos de Wawp.
+- Consulta la documentación oficial de Wawp o deja marcados claramente los puntos que deban completarse con la documentación real.
+- Mantén el adaptador `WawpService` desacoplado del resto del backend.
+- Toda comunicación con Wawp debe salir del backend.
+- Toda plantilla debe ser editable desde el panel.
+- Todo mensaje debe quedar registrado y auditable.
+- Todo cambio de cita generado por WhatsApp debe quedar reflejado en la agenda y en el historial de la cita.
+- No incluyas pagos, prepago, cobros, precios, facturación, presupuestos, reembolsos, suscripciones, cupones, carritos, pedidos ni pasarelas de pago.
+- Prioriza una implementación segura, modular, testeable y preparada para producción.
+
+Empieza entregando:
+1. El plan técnico de implementación.
+2. Las migraciones SQL necesarias.
+3. La estructura del módulo `wawp`.
+4. El adaptador `WawpService`.
+5. Los endpoints del backend.
+6. El sistema de plantillas y botones.
+7. El webhook seguro.
+8. Las automatizaciones de recordatorio, confirmación, cambio y anulación.
+9. Las pantallas del panel necesarias.
+10. Los tests y la documentación actualizada.

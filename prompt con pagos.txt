@@ -1,0 +1,360 @@
+Actúa como un equipo senior de producto, arquitectura de software, UX/UI y desarrollo full-stack.
+
+Crea una aplicación web y móvil para la gestión integral de citas de una clínica odontológica llamada [NOMBRE_CLÍNICA].
+
+El sistema debe ser profesional, seguro, escalable y listo para funcionar primero en local y después desplegarse en un servidor online.
+
+Stack obligatorio:
+- Frontend web: React + Vite + TypeScript + Tailwind CSS + shadcn/ui.
+- App móvil: React Native con Expo, reutilizando la máxima lógica posible con el backend.
+- Backend: Node.js con Express o NestJS, TypeScript y arquitectura modular.
+- Base de datos y autenticación: Supabase (PostgreSQL, Auth, Storage, Row Level Security y Edge Functions si son necesarias).
+- Integración WhatsApp: Wawp (https://wawp.net/en), mediante su API o webhooks. Debe permitir enviar mensajes, recibir mensajes entrantes y sincronizar conversaciones.
+- Estado global: Zustand o React Query.
+- Validaciones: Zod.
+- ORM/acceso a datos: Supabase JS Client; usar migraciones SQL versionadas.
+- Testing: Vitest/Jest y Playwright para flujos críticos.
+- Documentación: README con instalación local, variables de entorno, migraciones, despliegue y configuración de Wawp.
+
+OBJETIVO DE NEGOCIO
+
+La clínica necesita digitalizar la captación de pacientes, la reserva de citas, la gestión del personal odontológico, la comunicación por WhatsApp y la administración general.
+
+Debe incluir:
+1. Una web pública muy profesional, tipo landing page corporativa de clínica dental.
+2. Un panel de administración interno tipo CRM.
+3. Una app móvil para pacientes y/o personal de la clínica.
+4. Automatizaciones de WhatsApp para confirmaciones, recordatorios, cambios de cita y seguimiento.
+5. Un sistema de bandeja de conversaciones WhatsApp con cada paciente.
+
+PARTE 1 — WEB PÚBLICA DE LA CLÍNICA
+
+Diseña un sitio web público de aspecto premium, moderno, limpio, confiable y orientado a conversión. Debe transmitir profesionalidad médica, cercanía y confianza.
+
+Incluye estas páginas/secciones:
+
+- Home:
+  - Hero con propuesta de valor clara: “Cuidado dental integral para toda la familia”.
+  - Botones CTA: “Reservar cita”, “WhatsApp”, “Llamar ahora”.
+  - Servicios principales: limpieza, empastes, ortodoncia, implantes, estética dental, endodoncia, odontopediatría, urgencias.
+  - Sección de equipo profesional con foto, nombre, especialidad y breve biografía.
+  - Testimonios de pacientes.
+  - Antes/después o casos de éxito, si se dispone de imágenes.
+  - Preguntas frecuentes.
+  - Mapa, horarios, teléfono, email y redes sociales.
+  - Footer con aviso legal, política de privacidad y cookies.
+
+- Servicios:
+  - Página individual por tratamiento.
+  - Descripción, beneficios, duración estimada, precio orientativo opcional, imágenes y CTA para reservar.
+
+- Equipo:
+  - Fichas de dentistas con especialidad, experiencia, idiomas y disponibilidad.
+
+- Reserva de cita pública:
+  - Formulario de nueva cita para pacientes no registrados.
+  - Selección de servicio, profesional opcional, fecha, hora disponible, datos personales y consentimiento RGPD.
+  - Validación de teléfono y email.
+  - Confirmación con resumen de la cita.
+  - Envío automático de mensaje WhatsApp de confirmación mediante Wawp.
+
+- Contacto:
+  - Formulario de contacto.
+  - Botón flotante de WhatsApp.
+  - Integración con Google Maps.
+
+Requisitos de diseño:
+- Mobile-first y responsive.
+- Accesibilidad WCAG AA.
+- SEO técnico: metadatos, Open Graph, sitemap, robots.txt, datos estructurados schema.org para LocalBusiness, Dentist y MedicalClinic.
+- Rendimiento alto: imágenes optimizadas, lazy loading, Lighthouse superior a 90.
+- Identidad visual editable desde el panel de administración: logo, colores, textos, horarios, teléfono, dirección y redes sociales.
+- Soporte en español como idioma principal y arquitectura preparada para añadir más idiomas.
+
+PARTE 2 — PANEL ADMINISTRATIVO / CRM
+
+Crea un panel privado para administradores, recepción y dentistas.
+
+Roles y permisos:
+- Superadmin: acceso total, configuración, usuarios, roles, facturación interna y auditoría.
+- Administrador/recepción: gestión de pacientes, agenda, citas, mensajes, configuración operativa.
+- Dentista/profesional: acceso a su agenda, pacientes asignados, historial clínico y conversaciones relacionadas.
+- Recepcionista limitado: gestión de citas y comunicación, sin acceso a datos clínicos sensibles salvo permiso explícito.
+
+Módulos obligatorios:
+
+1. Dashboard
+- Citas de hoy, próximas citas, pacientes nuevos, cancelaciones, ausencias, ingresos estimados y ocupación por profesional.
+- Gráficos de citas por día, semana, mes, servicio y profesional.
+- Alertas: citas sin confirmar, pacientes pendientes de respuesta, huecos en agenda y recordatorios fallidos.
+
+2. Gestión de pacientes
+- CRUD completo de pacientes.
+- Datos: nombre, apellidos, DNI/NIE opcional, fecha de nacimiento, teléfono, email, dirección, notas, tags, fuente de captación, consentimientos y estado.
+- Historial clínico básico: alergias, medicación, antecedentes, tratamientos realizados, presupuesto, documentos y archivos.
+- Búsqueda avanzada, filtros, exportación CSV y auditoría de cambios.
+- Cumplimiento RGPD: consentimientos, derecho de acceso, supresión/anonimización y registro de accesos a datos sensibles.
+
+3. Gestión de dentistas y personal
+- CRUD de profesionales.
+- Especialidad, horario laboral, días libres, vacaciones, servicios que realiza y color en calendario.
+- Configuración de duración por tipo de cita.
+- Gestión de usuarios, roles, permisos y estados activo/inactivo.
+
+4. Agenda y citas
+- Calendario diario, semanal y mensual.
+- Vista por clínica, profesional, sala/consultorio y servicio.
+- Crear, editar, reprogramar, confirmar, cancelar y marcar como completada una cita.
+- Detección automática de solapamientos.
+- Estados de cita: pendiente, confirmada, en espera, completada, cancelada por paciente, cancelada por clínica, no asistida.
+- Motivos de cancelación y reprogramación.
+- Reserva con validación de disponibilidad en tiempo real.
+- Bloqueos de agenda, festivos y excepciones.
+- Opción de citas recurrentes o de seguimiento.
+
+5. WhatsApp y comunicaciones
+- Integración con Wawp para:
+  - Enviar mensajes individuales desde la ficha del paciente.
+  - Enviar plantillas con variables: nombre, fecha, hora, profesional, clínica, enlace de confirmación y enlace de cancelación.
+  - Enviar recordatorios automáticos antes de la cita, con tiempo configurable.
+  - Enviar confirmación al crear cita.
+  - Enviar aviso al reprogramar o cancelar.
+  - Enviar mensaje post-cita de satisfacción o seguimiento.
+  - Enviar campañas o mensajes masivos segmentados, con control anti-spam.
+- Bandeja de conversaciones WhatsApp:
+  - Listado de chats por paciente.
+  - Historial completo de mensajes enviados y recibidos.
+  - Estados: enviado, entregado, leído y fallido.
+  - Asignación de conversación a un miembro del equipo.
+  - Etiquetas, notas internas y búsqueda.
+  - Respuesta manual desde el panel.
+  - Webhook para recibir mensajes entrantes de Wawp en tiempo real.
+  - Prevención de duplicados y reintentos seguros.
+- Registro de todos los envíos para auditoría.
+
+6. Configuración general
+- Datos de la clínica: nombre, logo, dirección, teléfono, email, horarios, redes sociales, colores y textos de la web.
+- Servicios dentales: nombre, descripción, duración, precio, color, activo/inactivo.
+- Profesionales y asignación de servicios.
+- Horarios y reglas de agenda.
+- Plantillas de WhatsApp editables.
+- Configuración de Wawp: API key/token, número WhatsApp, webhook, eventos y entorno sandbox/producción.
+- Configuración de recordatorios: 24 horas antes, 2 horas antes, etc.
+- Gestión de usuarios, roles y permisos.
+- Registro de auditoría.
+
+PARTE 3 — APP MÓVIL
+
+Crea una app móvil con Expo/React Native orientada primero a pacientes y, opcionalmente, a profesionales.
+
+Para pacientes:
+- Registro e inicio de sesión con email/contraseña mediante Supabase Auth.
+- Posibilidad de inicio de sesión con teléfono y OTP por WhatsApp, si Wawp lo permite.
+- Inicio con próximas citas.
+- Reserva de cita: servicio, profesional, fecha y hora.
+- Reprogramar o cancelar cita.
+- Historial de citas.
+- Notificaciones push para recordatorios.
+- Chat o acceso a conversación WhatsApp.
+- Perfil y datos personales.
+- Aceptación de términos, privacidad y consentimientos.
+
+Para dentistas/personal:
+- Agenda del día.
+- Citas próximas.
+- Ficha rápida del paciente.
+- Confirmar asistencia, cancelar o reprogramar.
+- Notas de consulta.
+- Notificaciones de nuevas citas o cambios.
+
+PARTE 4 — BASE DE DATOS SUPABASE
+
+Diseña el modelo de datos completo en PostgreSQL con migraciones SQL y Row Level Security.
+
+Tablas mínimas:
+- clinics
+- users
+- profiles
+- roles
+- permissions
+- role_permissions
+- professionals
+- professional_schedules
+- professional_time_off
+- services
+- professional_services
+- patients
+- patient_documents
+- patient_consents
+- appointments
+- appointment_status_history
+- appointment_reminders
+- blocked_slots
+- whatsapp_contacts
+- whatsapp_conversations
+- whatsapp_messages
+- message_templates
+- message_campaigns
+- message_logs
+- webhook_events
+- settings
+- audit_logs
+
+Define:
+- Claves foráneas, índices y restricciones.
+- Enums para estados de cita, mensajes y roles.
+- Soft delete cuando proceda.
+- created_at, updated_at y created_by/updated_by.
+- Políticas RLS por rol.
+- Funciones o triggers para evitar solapamientos de citas.
+- Funciones para calcular disponibilidad.
+- Índices para búsquedas por teléfono, email, nombre, fecha y estado.
+
+PARTE 5 — ARQUITECTURA BACKEND
+
+Estructura el backend en módulos claros:
+- auth
+- users
+- patients
+- professionals
+- services
+- appointments
+- availability
+- whatsapp
+- wawp
+- notifications
+- settings
+- media
+- audit
+- webhooks
+
+Implementa:
+- API REST versionada bajo /api/v1.
+- DTOs con Zod.
+- Middlewares de autenticación, autorización por rol, rate limiting, logging y manejo de errores.
+- Servicios desacoplados de los controladores.
+- Repositorios o capa de acceso a datos.
+- Cola de trabajos para recordatorios, reintentos y campañas; puede usarse BullMQ + Redis o un sistema simple basado en cron si es para desarrollo local.
+- Webhook seguro para Wawp con validación de firma/token.
+- Idempotencia en webhooks y envíos.
+- Reintentos con backoff para fallos de WhatsApp.
+- Logs estructurados.
+- Variables de entorno mediante .env.example.
+
+PARTE 6 — FLUJOS CLAVE
+
+Implementa y documenta estos flujos:
+
+1. Reserva desde la web
+- Paciente selecciona servicio, profesional, fecha y hora.
+- El sistema valida disponibilidad.
+- Crea o vincula el paciente por teléfono/email.
+- Crea la cita en estado pendiente.
+- Envía confirmación por WhatsApp usando Wawp.
+- Registra el envío y actualiza el estado del mensaje.
+
+2. Recordatorio automático
+- Job programado revisa citas próximas.
+- Envía recordatorio según la configuración.
+- Evita duplicados.
+- Permite confirmar, cancelar o solicitar cambio desde un enlace seguro.
+
+3. Confirmación o cancelación por WhatsApp
+- El paciente responde o pulsa un enlace.
+- El webhook de Wawp actualiza la cita.
+- El personal ve el cambio en el CRM y la agenda.
+
+4. Conversación WhatsApp
+- El paciente escribe al número de la clínica.
+- Wawp envía el webhook.
+- El backend guarda el mensaje, lo asocia al paciente y actualiza la conversación.
+- El equipo responde desde el CRM.
+- El mensaje sale por Wawp y se guarda con su estado.
+
+5. Reprogramación
+- Recepción o paciente solicita cambio.
+- El sistema valida nueva disponibilidad.
+- Actualiza la cita, guarda historial y envía aviso por WhatsApp.
+
+PARTE 7 — SEGURIDAD Y CALIDAD
+
+- Nunca almacenar credenciales de Wawp en el frontend.
+- Usar variables de entorno y secretos en el backend.
+- Aplicar RLS en Supabase.
+- Validar y sanear toda entrada.
+- Proteger rutas por rol y permiso.
+- Cifrar datos sensibles cuando corresponda.
+- Registrar accesos a historial clínico.
+- Cumplir RGPD: consentimiento, minimización de datos, retención, exportación y eliminación.
+- Incluir tests unitarios para disponibilidad, citas, recordatorios, permisos y webhooks.
+- Incluir tests E2E para reserva, confirmación y conversación WhatsApp.
+- Generar documentación de API con OpenAPI/Swagger.
+
+PARTE 8 — ENTREGABLES
+
+Genera:
+
+1. Estructura completa del monorepo:
+   - apps/web
+   - apps/mobile
+   - apps/api
+   - packages/shared
+   - packages/ui
+   - supabase/migrations
+   - supabase/seed
+   - docs
+
+2. Código inicial funcional con:
+   - Configuración de monorepo.
+   - Docker Compose opcional para desarrollo local.
+   - Variables de entorno de ejemplo.
+   - Migraciones SQL iniciales.
+   - Seed con servicios dentales, roles, un administrador de prueba y una clínica de ejemplo.
+   - Páginas principales del frontend.
+   - Endpoints principales del backend.
+   - Integración base con Wawp.
+   - Webhook de WhatsApp.
+   - Panel CRM con navegación y pantallas principales.
+
+3. Documentación:
+   - README en español.
+   - Diagrama de arquitectura.
+   - Modelo de datos.
+   - Explicación de permisos.
+   - Guía de configuración de Wawp.
+   - Guía de despliegue posterior a un servidor online.
+   - Lista de tareas pendientes y mejoras recomendadas.
+
+Empieza creando:
+1. La arquitectura del proyecto.
+2. El modelo de datos de Supabase.
+3. La estructura del backend Node.js.
+4. La estructura del frontend web.
+5. La estructura de la app móvil.
+6. Los primeros endpoints y pantallas funcionales.
+7. La integración con Wawp.
+8. Un plan de desarrollo por fases.
+
+No inventes endpoints de Wawp: consulta o deja claramente marcados los puntos donde deban introducirse la documentación oficial, la API key, el número de WhatsApp, la URL del webhook y los identificadores de plantillas.
+
+Prioriza una primera versión funcional (MVP) con:
+- Web pública profesional.
+- Reserva de citas.
+- CRM de pacientes.
+- Agenda de dentistas.
+- Gestión de servicios.
+- WhatsApp con Wawp.
+- Recordatorios automáticos.
+- Bandeja de conversaciones.
+- Configuración general.
+- App móvil básica para pacientes.
+
+Después deja preparadas las fases siguientes:
+- Pagos online.
+- Firmas digitales y consentimientos.
+- Historia clínica avanzada.
+- Informes y analítica avanzada.
+- Multi-clínica.
+- Facturación.
+- Marketing automatizado.
+- Portal de paciente más completo.

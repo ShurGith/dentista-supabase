@@ -1,0 +1,9 @@
+node_modules
+.git
+.env
+.env.*
+*.old
+volumes/
+tests/
+docker-compose*.yml
+compose*.yaml

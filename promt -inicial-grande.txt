@@ -1,0 +1,1717 @@
+Actúa como un equipo senior de bases de datos PostgreSQL, seguridad, arquitectura de software, DevOps, backend Node.js/TypeScript y desarrollo full-stack.
+
+Vas a crear, revisar, completar e integrar la base de datos de Supabase, el almacenamiento de archivos y el despliegue de una aplicación de gestión de citas para una clínica odontológica.
+
+La aplicación ya dispone de:
+- Frontend web en React + Vite + TypeScript + Tailwind CSS + shadcn/ui.
+- App móvil en React Native con Expo.
+- Backend en Node.js con TypeScript.
+- Supabase como base de datos, autenticación, Storage, Realtime y Row Level Security.
+- Panel de administración tipo CRM.
+- Calendario de citas con arrastrar, soltar y redimensionar.
+- Gestión de pacientes, profesionales, servicios, horarios, usuarios, roles y permisos.
+- Web pública de la clínica.
+- Integración con Wawp para WhatsApp.
+- Modales de aviso de error y modales para todos los avisos que sean necesarios.
+
+OBJETIVO PRINCIPAL
+
+Crear una base de datos Supabase completa, segura, escalable y lista para producción.
+
+Debes generar:
+1. Los scripts SQL completos para crear todas las tablas.
+2. Las políticas RLS completas para cada tabla.
+3. La configuración completa de Supabase Storage.
+4. Las migraciones versionadas.
+5. Los índices, funciones, triggers, vistas y seed necesarios.
+6. Los tests de RLS y seguridad.
+7. El plan de integración con el backend, frontend y app móvil.
+8. El plan completo de despliegue a producción.
+
+La base de datos no debe tener errores, advertencias ni incidencias de seguridad en el Security Advisor, el linter de Supabase o los tests de RLS.
+
+No modifiques ni elimines funcionalidades existentes salvo que sea necesario para corregir problemas de seguridad, integridad, rendimiento o despliegue.
+
+REGLA CRÍTICA DE SEGURIDAD
+
+No entregues una base de datos con:
+- Tablas expuestas sin RLS habilitado.
+- Políticas RLS ausentes, incompletas o permisivas.
+- Políticas `USING (true)` o `WITH CHECK (true)` sin justificación explícita.
+- Acceso cruzado entre clínicas.
+- Acceso no autorizado a datos clínicos, documentos, WhatsApp, usuarios, roles, configuración o auditoría.
+- Secretos, tokens, API keys o credenciales expuestos.
+- Permisos excesivos para `anon` o `authenticated`.
+- Funciones inseguras.
+- Vistas inseguras.
+- Buckets de Storage públicos que contengan datos sensibles.
+- Fallos en `supabase db lint`, `supabase db advisors` o `supabase test db`.
+
+Supabase advierte que una tabla expuesta sin RLS puede ser leída o modificada por cualquier rol con permisos, y que políticas como `USING (true)` anulan la protección. [27][28]
+
+ALCANCE EXCLUIDO
+
+No incluyas pagos online, prepago, cobros, pasarelas de pago, suscripciones, facturación, presupuestos económicos, precios, importes, descuentos, cupones, carritos, pedidos, reembolsos, recordatorios de pago ni ninguna funcionalidad relacionada con transacciones económicas.
+
+La aplicación se limita exclusivamente a la gestión de citas, pacientes, profesionales, comunicación por WhatsApp y administración de la clínica.
+
+STACK Y CONTEXTO
+
+- Frontend web: React + Vite + TypeScript + Tailwind CSS + shadcn/ui.
+- App móvil: React Native con Expo.
+- Backend: Node.js con TypeScript, Express o NestJS.
+- Base de datos: Supabase PostgreSQL.
+- Autenticación: Supabase Auth.
+- Almacenamiento: Supabase Storage.
+- Tiempo real: Supabase Realtime.
+- Seguridad: Row Level Security, políticas RLS, grants mínimos y auditoría.
+- WhatsApp: Wawp mediante API y webhooks.
+- Calendario: FullCalendar con React y TypeScript.
+- Validaciones: Zod.
+- Testing: Vitest/Jest, Playwright y pgTAP.
+- Despliegue: Supabase CLI, migraciones SQL y servidor online posterior.
+
+PARTE 1 — ARQUITECTURA DE LA BASE DE DATOS
+
+Crea la base de datos en el esquema `public`.
+
+Usa una arquitectura multi-clínica desde el inicio.
+
+Toda tabla que contenga datos de una clínica debe incluir `clinic_id`.
+
+No permitas que un usuario acceda a datos de una clínica a la que no pertenece.
+
+Usa UUID como clave primaria en todas las tablas.
+
+Usa `timestamptz` para todas las fechas y horas.
+
+Usa enums de PostgreSQL para estados y tipos controlados.
+
+Usa soft delete cuando proceda.
+
+Incluye `created_at`, `updated_at`, `created_by` y `updated_by` cuando proceda.
+
+PARTE 2 — SCRIPTS SQL COMPLETOS PARA CREAR LAS TABLAS
+
+Genera migraciones SQL completas, ejecutables y versionadas para crear toda la base de datos.
+
+No entregues pseudocódigo ni fragmentos incompletos.
+
+Cada migración debe poder ejecutarse de forma segura en una base de datos vacía.
+
+Estructura recomendada:
+
+```text
+supabase/migrations/
+  0001_create_extensions.sql
+  0002_create_enums.sql
+  0003_create_clinics_and_profiles.sql
+  0004_create_users_roles_permissions.sql
+  0005_create_patients.sql
+  0006_create_professionals_and_services.sql
+  0007_create_rooms_and_schedules.sql
+  0008_create_appointments.sql
+  0009_create_whatsapp_tables.sql
+  0010_create_message_templates.sql
+  0011_create_functions_and_triggers.sql
+  0012_enable_rls_and_policies.sql
+  0013_create_indexes.sql
+  0014_create_storage_buckets_and_policies.sql
+  0015_create_views_and_functions.sql
+  0016_seed_initial_data.sql
+
+2.1 Extensiones
+
+No habilites extensiones innecesarias.
+No instales extensiones en el esquema  public  si Supabase recomienda ubicarlas en otro esquema.
+
+2.2 Enums
+create type public.user_status as enum (
+  'active',
+  'inactive',
+  'suspended'
+);
+
+create type public.appointment_status as enum (
+  'pending',
+  'confirmed',
+  'waiting',
+  'completed',
+  'cancelled_by_patient',
+  'cancelled_by_clinic',
+  'no_show'
+);
+
+create type public.message_status as enum (
+  'pending',
+  'scheduled',
+  'sent',
+  'delivered',
+  'read',
+  'failed',
+  'cancelled'
+);
+
+create type public.message_direction as enum (
+  'inbound',
+  'outbound'
+);
+
+create type public.appointment_action_type as enum (
+  'confirm',
+  'reschedule',
+  'cancel'
+);
+
+create type public.button_action_type as enum (
+  'confirm_appointment',
+  'request_reschedule',
+  'cancel_appointment',
+  'open_url',
+  'open_mobile_app',
+  'send_predefined_reply'
+);
+Añade todos los enums adicionales que sean necesarios.
+
+2.3 Tabla clinics
+
+create table public.clinics (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  legal_name text,
+  tax_id text,
+  email text,
+  phone text,
+  address_line_1 text,
+  address_line_2 text,
+  city text,
+  postal_code text,
+  province text,
+  country text default 'ES',
+  timezone text not null default 'Europe/Madrid',
+  logo_url text,
+  primary_color text,
+  secondary_color text,
+  website_url text,
+  whatsapp_phone text,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index clinics_name_key on public.clinics (name);
+
+2.4 Tabla profiles
+
+create table public.profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  clinic_id uuid not null references public.clinics (id) on delete restrict,
+  first_name text not null,
+  last_name text not null,
+  email text not null,
+  phone text,
+  avatar_url text,
+  preferred_language text not null default 'es',
+  status public.user_status not null default 'active',
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (clinic_id, email)
+);
+
+create index profiles_clinic_id_idx on public.profiles (clinic_id);
+create index profiles_email_idx on public.profiles (email);
+create index profiles_phone_idx on public.profiles (phone);
+
+
+2.5 Tabla roles
+
+create table public.roles (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  name text not null,
+  slug text not null,
+  description text,
+  is_system boolean not null default false,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (clinic_id, slug)
+);
+
+create index roles_clinic_id_idx on public.roles (clinic_id);
+create index roles_slug_idx on public.roles (slug);
+
+2.6 Tabla permissions
+
+create table public.permissions (
+  id uuid primary key default gen_random_uuid(),
+  module text not null,
+  action text not null,
+  slug text not null,
+  description text,
+  created_at timestamptz not null default now(),
+  unique (slug)
+);
+
+create index permissions_module_idx on public.permissions (module);
+create index permissions_action_idx on public.permissions (action);
+
+2.8 Tabla user_roles
+
+create table public.user_roles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  role_id uuid not null references public.roles (id) on delete cascade,
+  assigned_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  unique (user_id, role_id)
+);
+
+create index user_roles_user_id_idx on public.user_roles (user_id);
+create index user_roles_role_id_idx on public.user_roles (role_id);
+
+2.9 Tabla user_permissions
+
+create table public.user_permissions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  permission_id uuid not null references public.permissions (id) on delete cascade,
+  is_granted boolean not null default true,
+  granted_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  unique (user_id, permission_id)
+);
+
+create index user_permissions_user_id_idx on public.user_permissions (user_id);
+create index user_permissions_permission_id_idx on public.user_permissions (permission_id);
+
+2.10 Tabla professionals
+
+create table public.professionals (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  user_id uuid references public.profiles (id) on delete set null,
+  first_name text not null,
+  last_name text not null,
+  email text,
+  phone text,
+  specialty text,
+  biography text,
+  avatar_url text,
+  calendar_color text not null default '#2563eb',
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index professionals_clinic_id_idx on public.professionals (clinic_id);
+create index professionals_user_id_idx on public.professionals (user_id);
+
+2.11 Tabla services
+
+create table public.services (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  name text not null,
+  slug text not null,
+  description text,
+  duration_minutes integer not null default 30 check (duration_minutes > 0),
+  color text not null default '#0ea5e9',
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (clinic_id, slug)
+);
+
+create index services_clinic_id_idx on public.services (clinic_id);
+create index services_is_active_idx on public.services (is_active);
+
+2.12 Tabla professional_services
+
+create table public.professional_services (
+  id uuid primary key default gen_random_uuid(),
+  professional_id uuid not null references public.professionals (id) on delete cascade,
+  service_id uuid not null references public.services (id) on delete cascade,
+  duration_minutes integer,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  unique (professional_id, service_id)
+);
+
+create index professional_services_professional_id_idx on public.professional_services (professional_id);
+create index professional_services_service_id_idx on public.professional_services (service_id);
+
+
+2.13 Tabla patients
+
+create table public.patients (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  first_name text not null,
+  last_name text not null,
+  email text,
+  phone text not null,
+  phone_country_code text not null default '+34',
+  birth_date date,
+  document_type text,
+  document_number text,
+  address_line_1 text,
+  address_line_2 text,
+  city text,
+  postal_code text,
+  province text,
+  country text default 'ES',
+  preferred_language text not null default 'es',
+  notes text,
+  tags text[] not null default '{}',
+  acquisition_source text,
+  status text not null default 'active',
+  is_deleted boolean not null default false,
+  deleted_at timestamptz,
+  deleted_by uuid references public.profiles (id) on delete set null,
+  created_by uuid references public.profiles (id) on delete set null,
+  updated_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (clinic_id, phone)
+);
+
+create index patients_clinic_id_idx on public.patients (clinic_id);
+create index patients_phone_idx on public.patients (phone);
+create index patients_email_idx on public.patients (email);
+create index patients_is_deleted_idx on public.patients (is_deleted);
+create index patients_status_idx on public.patients (status);
+
+2.14 Tabla patient_documents
+
+create table public.patient_documents (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  patient_id uuid not null references public.patients (id) on delete cascade,
+  uploaded_by uuid references public.profiles (id) on delete set null,
+  bucket_id text not null,
+  storage_path text not null,
+  file_name text not null,
+  mime_type text,
+  file_size bigint,
+  category text,
+  description text,
+  is_deleted boolean not null default false,
+  deleted_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index patient_documents_clinic_id_idx on public.patient_documents (clinic_id);
+create index patient_documents_patient_id_idx on public.patient_documents (patient_id);
+create index patient_documents_bucket_id_idx on public.patient_documents (bucket_id);
+
+2.15 Tabla patient_consents
+
+create table public.patient_consents (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  patient_id uuid not null references public.patients (id) on delete cascade,
+  consent_type text not null,
+  is_accepted boolean not null default false,
+  accepted_at timestamptz,
+  accepted_by uuid references public.profiles (id) on delete set null,
+  document_url text,
+  expires_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index patient_consents_clinic_id_idx on public.patient_consents (clinic_id);
+create index patient_consents_patient_id_idx on public.patient_consents (patient_id);
+
+
+2.16 Tabla patient_change_logs
+
+create table public.patient_change_logs (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  patient_id uuid not null references public.patients (id) on delete cascade,
+  changed_by uuid references public.profiles (id) on delete set null,
+  field_name text not null,
+  old_value text,
+  new_value text,
+  change_type text not null default 'update',
+  created_at timestamptz not null default now()
+);
+
+create index patient_change_logs_clinic_id_idx on public.patient_change_logs (clinic_id);
+create index patient_change_logs_patient_id_idx on public.patient_change_logs (patient_id);
+create index patient_change_logs_created_at_idx on public.patient_change_logs (created_at desc);
+
+2.17 Tabla rooms
+
+create table public.rooms (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  name text not null,
+  color text not null default '#64748b',
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (clinic_id, name)
+);
+
+create index rooms_clinic_id_idx on public.rooms (clinic_id);
+
+2.19 Tabla professional_time_off
+
+create table public.professional_time_off (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  professional_id uuid not null references public.professionals (id) on delete cascade,
+  start_datetime timestamptz not null,
+  end_datetime timestamptz not null,
+  type text not null default 'vacation',
+  reason text,
+  created_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  check (end_datetime > start_datetime)
+);
+
+create index professional_time_off_clinic_id_idx on public.professional_time_off (clinic_id);
+create index professional_time_off_professional_id_idx on public.professional_time_off (professional_id);
+create index professional_time_off_dates_idx on public.professional_time_off (start_datetime, end_datetime);
+
+2.20 Tabla room_schedules
+
+create table public.room_schedules (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  room_id uuid not null references public.rooms (id) on delete cascade,
+  day_of_week smallint not null check (day_of_week between 0 and 6),
+  starts_at time not null,
+  ends_at time not null,
+  is_available boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (ends_at > starts_at)
+);
+
+create index room_schedules_clinic_id_idx on public.room_schedules (clinic_id);
+create index room_schedules_room_id_idx on public.room_schedules (room_id);
+
+2.21 Tabla room_blocks
+
+create table public.room_blocks (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  room_id uuid not null references public.rooms (id) on delete cascade,
+  start_datetime timestamptz not null,
+  end_datetime timestamptz not null,
+  reason text,
+  created_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  check (end_datetime > start_datetime)
+);
+
+create index room_blocks_clinic_id_idx on public.room_blocks (clinic_id);
+create index room_blocks_room_id_idx on public.room_blocks (room_id);
+create index room_blocks_dates_idx on public.room_blocks (start_datetime, end_datetime);
+
+
+2.22 Tabla schedule_exceptions
+
+create table public.schedule_exceptions (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  professional_id uuid references public.professionals (id) on delete cascade,
+  room_id uuid references public.rooms (id) on delete cascade,
+  date date not null,
+  start_time time,
+  end_time time,
+  type text not null default 'closed',
+  reason text,
+  is_active boolean not null default true,
+  created_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index schedule_exceptions_clinic_id_idx on public.schedule_exceptions (clinic_id);
+create index schedule_exceptions_date_idx on public.schedule_exceptions (date);
+create index schedule_exceptions_professional_id_idx on public.schedule_exceptions (professional_id);
+create index schedule_exceptions_room_id_idx on public.schedule_exceptions (room_id);
+
+2.23 Tabla booking_rules
+
+create table public.booking_rules (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  service_id uuid references public.services (id) on delete cascade,
+  professional_id uuid references public.professionals (id) on delete cascade,
+  min_booking_notice_minutes integer not null default 60,
+  max_booking_advance_days integer not null default 90,
+  slot_interval_minutes integer not null default 15,
+  buffer_minutes integer not null default 0,
+  max_parallel_appointments integer not null default 1,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index booking_rules_clinic_id_idx on public.booking_rules (clinic_id);
+create index booking_rules_service_id_idx on public.booking_rules (service_id);
+create index booking_rules_professional_id_idx on public.booking_rules (professional_id);
+
+2.24 Tabla appointments
+
+create table public.appointments (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  patient_id uuid not null references public.patients (id) on delete restrict,
+  professional_id uuid not null references public.professionals (id) on delete restrict,
+  service_id uuid not null references public.services (id) on delete restrict,
+  room_id uuid references public.rooms (id) on delete set null,
+  start_datetime timestamptz not null,
+  end_datetime timestamptz not null,
+  status public.appointment_status not null default 'pending',
+  source text not null default 'web',
+  notes text,
+  created_by uuid references public.profiles (id) on delete set null,
+  updated_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (end_datetime > start_datetime)
+);
+
+create index appointments_clinic_id_idx on public.appointments (clinic_id);
+create index appointments_patient_id_idx on public.appointments (patient_id);
+create index appointments_professional_id_idx on public.appointments (professional_id);
+create index appointments_service_id_idx on public.appointments (service_id);
+create index appointments_room_id_idx on public.appointments (room_id);
+create index appointments_status_idx on public.appointments (status);
+create index appointments_dates_idx on public.appointments (start_datetime, end_datetime);
+create index appointments_professional_dates_idx on public.appointments (professional_id, start_datetime, end_datetime);
+create index appointments_room_dates_idx on public.appointments (room_id, start_datetime, end_datetime);
+
+
+2.25 Tabla appointment_status_history
+
+create table public.appointment_status_history (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  appointment_id uuid not null references public.appointments (id) on delete cascade,
+  previous_status public.appointment_status,
+  new_status public.appointment_status not null,
+  changed_by uuid references public.profiles (id) on delete set null,
+  reason text,
+  created_at timestamptz not null default now()
+);
+
+create index appointment_status_history_clinic_id_idx on public.appointment_status_history (clinic_id);
+create index appointment_status_history_appointment_id_idx on public.appointment_status_history (appointment_id);
+create index appointment_status_history_created_at_idx on public.appointment_status_history (created_at desc);
+
+
+2.26 Tabla appointment_reminders
+
+create table public.appointment_reminders (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  appointment_id uuid not null references public.appointments (id) on delete cascade,
+  template_id uuid references public.message_templates (id) on delete set null,
+  send_at timestamptz not null,
+  status public.message_status not null default 'pending',
+  message_log_id uuid,
+  attempts integer not null default 0,
+  last_error text,
+  idempotency_key text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (appointment_id, template_id, send_at)
+);
+
+create index appointment_reminders_clinic_id_idx on public.appointment_reminders (clinic_id);
+create index appointment_reminders_appointment_id_idx on public.appointment_reminders (appointment_id);
+create index appointment_reminders_send_at_idx on public.appointment_reminders (send_at);
+create index appointment_reminders_status_idx on public.appointment_reminders (status);
+create unique index appointment_reminders_idempotency_key_idx on public.appointment_reminders (idempotency_key);
+
+2.27 Tabla blocked_slots
+
+create table public.blocked_slots (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  professional_id uuid references public.professionals (id) on delete cascade,
+  room_id uuid references public.rooms (id) on delete cascade,
+  start_datetime timestamptz not null,
+  end_datetime timestamptz not null,
+  reason text,
+  created_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  check (end_datetime > start_datetime)
+);
+
+create index blocked_slots_clinic_id_idx on public.blocked_slots (clinic_id);
+create index blocked_slots_professional_id_idx on public.blocked_slots (professional_id);
+create index blocked_slots_room_id_idx on public.blocked_slots (room_id);
+create index blocked_slots_dates_idx on public.blocked_slots (start_datetime, end_datetime);
+
+
+2.28 Tablas de WhatsApp
+
+create table public.whatsapp_contacts (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  patient_id uuid references public.patients (id) on delete set null,
+  phone text not null,
+  name text,
+  is_blocked boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (clinic_id, phone)
+);
+
+create index whatsapp_contacts_clinic_id_idx on public.whatsapp_contacts (clinic_id);
+create index whatsapp_contacts_patient_id_idx on public.whatsapp_contacts (patient_id);
+create index whatsapp_contacts_phone_idx on public.whatsapp_contacts (phone);
+
+create table public.whatsapp_conversations (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  patient_id uuid references public.patients (id) on delete set null,
+  contact_id uuid not null references public.whatsapp_contacts (id) on delete cascade,
+  assigned_to uuid references public.profiles (id) on delete set null,
+  last_message_at timestamptz,
+  unread_count integer not null default 0,
+  status text not null default 'open',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index whatsapp_conversations_clinic_id_idx on public.whatsapp_conversations (clinic_id);
+create index whatsapp_conversations_patient_id_idx on public.whatsapp_conversations (patient_id);
+create index whatsapp_conversations_contact_id_idx on public.whatsapp_conversations (contact_id);
+create index whatsapp_conversations_assigned_to_idx on public.whatsapp_conversations (assigned_to);
+
+create table public.whatsapp_messages (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  conversation_id uuid not null references public.whatsapp_conversations (id) on delete cascade,
+  patient_id uuid references public.patients (id) on delete set null,
+  appointment_id uuid references public.appointments (id) on delete set null,
+  direction public.message_direction not null,
+  status public.message_status not null default 'pending',
+  body text,
+  media_url text,
+  provider_message_id text,
+  external_event_id text,
+  error_code text,
+  error_message text,
+  sent_by uuid references public.profiles (id) on delete set null,
+  sent_at timestamptz,
+  delivered_at timestamptz,
+  read_at timestamptz,
+  failed_at timestamptz,
+  idempotency_key text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index whatsapp_messages_clinic_id_idx on public.whatsapp_messages (clinic_id);
+create index whatsapp_messages_conversation_id_idx on public.whatsapp_messages (conversation_id);
+create index whatsapp_messages_patient_id_idx on public.whatsapp_messages (patient_id);
+create index whatsapp_messages_appointment_id_idx on public.whatsapp_messages (appointment_id);
+create index whatsapp_messages_status_idx on public.whatsapp_messages (status);
+create index whatsapp_messages_provider_message_id_idx on public.whatsapp_messages (provider_message_id);
+create unique index whatsapp_messages_idempotency_key_idx on public.whatsapp_messages (idempotency_key);
+
+
+2.29 Tablas de plantillas y mensajes
+
+create table public.message_templates (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  internal_name text not null,
+  display_name text not null,
+  category text not null,
+  purpose text,
+  body text not null,
+  language text not null default 'es',
+  is_active boolean not null default true,
+  has_buttons boolean not null default false,
+  created_by uuid references public.profiles (id) on delete set null,
+  updated_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  deleted_at timestamptz,
+  unique (clinic_id, internal_name)
+);
+
+create index message_templates_clinic_id_idx on public.message_templates (clinic_id);
+create index message_templates_category_idx on public.message_templates (category);
+create index message_templates_is_active_idx on public.message_templates (is_active);
+
+create table public.message_template_buttons (
+  id uuid primary key default gen_random_uuid(),
+  template_id uuid not null references public.message_templates (id) on delete cascade,
+  label text not null,
+  action_type public.button_action_type not null,
+  action_value text,
+  position smallint not null default 1,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index message_template_buttons_template_id_idx on public.message_template_buttons (template_id);
+
+create table public.message_template_variables (
+  id uuid primary key default gen_random_uuid(),
+  template_id uuid not null references public.message_templates (id) on delete cascade,
+  variable_key text not null,
+  label text not null,
+  description text,
+  is_required boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique (template_id, variable_key)
+);
+
+create index message_template_variables_template_id_idx on public.message_template_variables (template_id);
+
+create table public.message_logs (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  patient_id uuid references public.patients (id) on delete set null,
+  appointment_id uuid references public.appointments (id) on delete set null,
+  template_id uuid references public.message_templates (id) on delete set null,
+  conversation_id uuid references public.whatsapp_conversations (id) on delete set null,
+  direction public.message_direction not null,
+  channel text not null default 'whatsapp',
+  provider text not null default 'wawp',
+  provider_message_id text,
+  status public.message_status not null default 'pending',
+  error_code text,
+  error_message text,
+  body_sent text,
+  variables_used jsonb,
+  buttons_sent jsonb,
+  sent_by uuid references public.profiles (id) on delete set null,
+  scheduled_at timestamptz,
+  sent_at timestamptz,
+  delivered_at timestamptz,
+  read_at timestamptz,
+  failed_at timestamptz,
+  retry_count integer not null default 0,
+  idempotency_key text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index message_logs_clinic_id_idx on public.message_logs (clinic_id);
+create index message_logs_patient_id_idx on public.message_logs (patient_id);
+create index message_logs_appointment_id_idx on public.message_logs (appointment_id);
+create index message_logs_template_id_idx on public.message_logs (template_id);
+create index message_logs_status_idx on public.message_logs (status);
+create index message_logs_provider_message_id_idx on public.message_logs (provider_message_id);
+create unique index message_logs_idempotency_key_idx on public.message_logs (idempotency_key);
+
+create table public.appointment_action_tokens (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  appointment_id uuid not null references public.appointments (id) on delete cascade,
+  patient_id uuid not null references public.patients (id) on delete cascade,
+  action_type public.appointment_action_type not null,
+  token_hash text not null,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  created_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index appointment_action_tokens_clinic_id_idx on public.appointment_action_tokens (clinic_id);
+create index appointment_action_tokens_appointment_id_idx on public.appointment_action_tokens (appointment_id);
+create index appointment_action_tokens_token_hash_idx on public.appointment_action_tokens (token_hash);
+create index appointment_action_tokens_expires_at_idx on public.appointment_action_tokens (expires_at);
+
+create table public.appointment_reschedule_requests (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  patient_id uuid not null references public.patients (id) on delete cascade,
+  appointment_id uuid not null references public.appointments (id) on delete cascade,
+  requested_by uuid references public.profiles (id) on delete set null,
+  status text not null default 'pending',
+  preferred_date date,
+  preferred_time time,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index appointment_reschedule_requests_clinic_id_idx on public.appointment_reschedule_requests (clinic_id);
+create index appointment_reschedule_requests_patient_id_idx on public.appointment_reschedule_requests (patient_id);
+create index appointment_reschedule_requests_appointment_id_idx on public.appointment_reschedule_requests (appointment_id);
+create index appointment_reschedule_requests_status_idx on public.appointment_reschedule_requests (status);
+
+create table public.webhook_events (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid references public.clinics (id) on delete set null,
+  provider text not null default 'wawp',
+  event_type text not null,
+  external_event_id text,
+  payload jsonb not null,
+  signature_valid boolean not null default false,
+  processed_at timestamptz,
+  status text not null default 'received',
+  error_message text,
+  created_at timestamptz not null default now()
+);
+
+create index webhook_events_provider_idx on public.webhook_events (provider);
+create index webhook_events_event_type_idx on public.webhook_events (event_type);
+create index webhook_events_external_event_id_idx on public.webhook_events (external_event_id);
+create index webhook_events_created_at_idx on public.webhook_events (created_at desc);
+
+2.30 Tabla settings
+
+create table public.settings (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references public.clinics (id) on delete cascade,
+  key text not null,
+  value jsonb not null default '{}'::jsonb,
+  is_public boolean not null default false,
+  created_by uuid references public.profiles (id) on delete set null,
+  updated_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (clinic_id, key)
+);
+
+create index settings_clinic_id_idx on public.settings (clinic_id);
+create index settings_key_idx on public.settings (key);
+
+
+2.31 Tabla audit_logs
+
+create table public.audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid references public.clinics (id) on delete set null,
+  actor_id uuid references public.profiles (id) on delete set null,
+  actor_role text,
+  action text not null,
+  entity_type text not null,
+  entity_id uuid,
+  old_values jsonb,
+  new_values jsonb,
+  ip_address inet,
+  user_agent text,
+  created_at timestamptz not null default now()
+);
+
+create index audit_logs_clinic_id_idx on public.audit_logs (clinic_id);
+create index audit_logs_actor_id_idx on public.audit_logs (actor_id);
+create index audit_logs_entity_idx on public.audit_logs (entity_type, entity_id);
+create index audit_logs_created_at_idx on public.audit_logs (created_at desc);
+
+PARTE 3 — HABILITAR RLS EN TODAS LAS TABLAS
+Después de crear las tablas, habilita RLS en todas ellas.
+No dejes ninguna tabla del esquema  public  sin RLS si está expuesta mediante la Data API de Supabase.
+
+alter table public.clinics enable row level security;
+alter table public.profiles enable row level security;
+alter table public.roles enable row level security;
+alter table public.permissions enable row level security;
+alter table public.role_permissions enable row level security;
+alter table public.user_roles enable row level security;
+alter table public.user_permissions enable row level security;
+alter table public.professionals enable row level security;
+alter table public.services enable row level security;
+alter table public.professional_services enable row level security;
+alter table public.patients enable row level security;
+alter table public.patient_documents enable row level security;
+alter table public.patient_consents enable row level security;
+alter table public.patient_change_logs enable row level security;
+alter table public.rooms enable row level security;
+alter table public.professional_schedules enable row level security;
+alter table public.professional_time_off enable row level security;
+alter table public.room_schedules enable row level security;
+alter table public.room_blocks enable row level security;
+alter table public.schedule_exceptions enable row level security;
+alter table public.booking_rules enable row level security;
+alter table public.appointments enable row level security;
+alter table public.appointment_status_history enable row level security;
+alter table public.appointment_reminders enable row level security;
+alter table public.blocked_slots enable row level security;
+alter table public.whatsapp_contacts enable row level security;
+alter table public.whatsapp_conversations enable row level security;
+alter table public.whatsapp_messages enable row level security;
+alter table public.message_templates enable row level security;
+alter table public.message_template_buttons enable row level security;
+alter table public.message_template_variables enable row level security;
+alter table public.message_logs enable row level security;
+alter table public.appointment_action_tokens enable row level security;
+alter table public.appointment_reschedule_requests enable row level security;
+alter table public.webhook_events enable row level security;
+alter table public.settings enable row level security;
+alter table public.audit_logs enable row level security;
+
+PARTE 4 — POLÍTICAS RLS PARA CADA TABLA
+
+Crea políticas RLS explícitas para cada tabla y operación.
+No uses políticas genéricas ni permisivas.
+Cada política debe especificar:
+•	Tabla.
+•	Operación:  SELECT ,  INSERT ,  UPDATE  o  DELETE .
+•	Rol:  anon ,  authenticated  o rol personalizado.
+•	Condición de acceso.
+•	Condición de validación para escritura, cuando aplique.
+4.1 Función auxiliar para obtener la clínica del usuario
+
+create or replace function public.current_user_clinic_id()
+returns uuid
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select clinic_id
+  from public.profiles
+  where id = auth.uid()
+  limit 1;
+$$;
+
+No uses  security definer  salvo que sea imprescindible.
+Si usas  security definer , fija siempre  search_path  y concede únicamente los permisos mínimos.
+
+
+4.2 Políticas de clinics
+
+create policy "Public can read active clinic data"
+on public.clinics
+for select
+to anon, authenticated
+using (
+  is_active = true
+);
+
+create policy "Superadmins can manage clinics"
+on public.clinics
+for all
+to authenticated
+using (
+  exists (
+    select 1
+    from public.user_roles ur
+    join public.roles r on r.id = ur.role_id
+    where ur.user_id = auth.uid()
+      and r.slug = 'superadmin'
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.user_roles ur
+    join public.roles r on r.id = ur.role_id
+    where ur.user_id = auth.uid()
+      and r.slug = 'superadmin'
+  )
+);
+
+4.3 Políticas de profiles
+
+create policy "Users can read own profile"
+on public.profiles
+for select
+to authenticated
+using (
+  id = auth.uid()
+);
+
+create policy "Users can update own profile"
+on public.profiles
+for update
+to authenticated
+using (
+  id = auth.uid()
+)
+with check (
+  id = auth.uid()
+  and clinic_id = public.current_user_clinic_id()
+);
+
+create policy "Clinic admins can read profiles"
+on public.profiles
+for select
+to authenticated
+using (
+  clinic_id = public.current_user_clinic_id()
+  and exists (
+    select 1
+    from public.user_roles ur
+    join public.roles r on r.id = ur.role_id
+    join public.role_permissions rp on rp.role_id = r.id
+    join public.permissions p on p.id = rp.permission_id
+    where ur.user_id = auth.uid()
+      and p.slug in ('users.view', 'users.manage')
+  )
+);
+
+create policy "Clinic admins can manage profiles"
+on public.profiles
+for all
+to authenticated
+using (
+  clinic_id = public.current_user_clinic_id()
+  and exists (
+    select 1
+    from public.user_roles ur
+    join public.roles r on r.id = ur.role_id
+    join public.role_permissions rp on rp.role_id = r.id
+    join public.permissions p on p.id = rp.permission_id
+    where ur.user_id = auth.uid()
+      and p.slug = 'users.manage'
+  )
+)
+with check (
+  clinic_id = public.current_user_clinic_id()
+  and exists (
+    select 1
+    from public.user_roles ur
+    join public.roles r on r.id = ur.role_id
+    join public.role_permissions rp on rp.role_id = r.id
+    join public.permissions p on p.id = rp.permission_id
+    where ur.user_id = auth.uid()
+      and p.slug = 'users.manage'
+  )
+);
+
+4.4 Políticas de roles, permissions, role_permissions, user_roles y user_permissions
+Crea políticas separadas para lectura, creación, actualización y eliminación.
+Solo los usuarios con permisos  roles.manage ,  permissions.manage  o  users.manage  deben poder modificar estos datos.
+Los usuarios normales solo deben poder leer los roles y permisos necesarios para mostrar la interfaz.
+No permitas que un usuario sin permisos asigne roles, cree roles ni modifique permisos.
+Añade una función o trigger para impedir que el último Superadmin activo pierda su acceso.
+
+create policy "Clinic users can read professionals"
+on public.professionals
+for select
+to authenticated
+using (
+  clinic_id = public.current_user_clinic_id()
+);
+
+create policy "Clinic managers can manage professionals"
+on public.professionals
+for all
+to authenticated
+using (
+  clinic_id = public.current_user_clinic_id()
+  and exists (
+    select 1
+    from public.user_roles ur
+    join public.roles r on r.id = ur.role_id
+    join public.role_permissions rp on rp.role_id = r.id
+    join public.permissions p on p.id = rp.permission_id
+    where ur.user_id = auth.uid()
+      and p.slug = 'professionals.manage'
+  )
+)
+with check (
+  clinic_id = public.current_user_clinic_id()
+  and exists (
+    select 1
+    from public.user_roles ur
+    join public.roles r on r.id = ur.role_id
+    join public.role_permissions rp on rp.role_id = r.id
+    join public.permissions p on p.id = rp.permission_id
+    where ur.user_id = auth.uid()
+      and p.slug = 'professionals.manage'
+  )
+);
+
+
+4.5 Políticas de professionals
+
+create policy "Clinic users can read professionals"
+on public.professionals
+for select
+to authenticated
+using (
+  clinic_id = public.current_user_clinic_id()
+);
+
+create policy "Clinic managers can manage professionals"
+on public.professionals
+for all
+to authenticated
+using (
+  clinic_id = public.current_user_clinic_id()
+  and exists (
+    select 1
+    from public.user_roles ur
+    join public.roles r on r.id = ur.role_id
+    join public.role_permissions rp on rp.role_id = r.id
+    join public.permissions p on p.id = rp.permission_id
+    where ur.user_id = auth.uid()
+      and p.slug = 'professionals.manage'
+  )
+)
+with check (
+  clinic_id = public.current_user_clinic_id()
+  and exists (
+    select 1
+    from public.user_roles ur
+    join public.roles r on r.id = ur.role_id
+    join public.role_permissions rp on rp.role_id = r.id
+    join public.permissions p on p.id = rp.permission_id
+    where ur.user_id = auth.uid()
+      and p.slug = 'professionals.manage'
+  )
+);
+
+
+4.6 Políticas de services y professional_services
+Crea políticas para:
+•	Leer servicios activos.
+•	Gestionar servicios.
+•	Leer relaciones profesional-servicio.
+•	Gestionar relaciones profesional-servicio.
+Los usuarios de la clínica pueden leer los servicios activos.
+Solo usuarios con permiso  services.manage  pueden crear, editar o eliminar servicios.
+4.7 Políticas de patients
+Crea políticas separadas para:
+
+-- patients.select
+-- patients.insert
+-- patients.update
+-- patients.delete
+-- patients.restore
+-- patients.view_clinical_history
+-- patients.view_documents
+-- patients.export
+
+Reglas:
+•	Un usuario solo puede acceder a pacientes de su clínica.
+•	Solo usuarios con  patients.view  pueden leer pacientes.
+•	Solo usuarios con  patients.create  pueden crear pacientes.
+•	Solo usuarios con  patients.update  pueden editar pacientes.
+•	Solo usuarios con  patients.delete  pueden eliminar lógicamente pacientes.
+•	Solo usuarios con  patients.hard_delete  pueden eliminar definitivamente pacientes.
+•	Solo usuarios con  patients.view_clinical_history  pueden ver datos clínicos.
+•	Solo usuarios con  patients.view_documents  pueden ver o descargar documentos.
+•	Solo usuarios con  patients.export  pueden exportar pacientes.
+Ejemplo de política de lectura:
+
+create policy "Authorized users can read patients"
+on public.patients
+for select
+to authenticated
+using (
+  clinic_id = public.current_user_clinic_id()
+  and exists (
+    select 1
+    from public.user_roles ur
+    join public.roles r on r.id = ur.role_id
+    join public.role_permissions rp on rp.role_id = r.id
+    join public.permissions p on p.id = rp.permission_id
+    where ur.user_id = auth.uid()
+      and p.slug = 'patients.view'
+  )
+);
+
+Ejemplo de política de inserción:
+
+create policy "Authorized users can create patients"
+on public.patients
+for insert
+to authenticated
+with check (
+  clinic_id = public.current_user_clinic_id()
+  and exists (
+    select 1
+    from public.user_roles ur
+    join public.roles r on r.id = ur.role_id
+    join public.role_permissions rp on rp.role_id = r.id
+    join public.permissions p on p.id = rp.permission_id
+    where ur.user_id = auth.uid()
+      and p.slug = 'patients.create'
+  )
+);
+
+
+4.8 Políticas de patient_documents, patient_consents y patient_change_logs
+•	Solo usuarios autorizados pueden leer documentos, consentimientos y cambios.
+•	Solo usuarios autorizados pueden subir, editar o eliminar documentos.
+•	Los documentos deben estar vinculados a  clinic_id  y  patient_id .
+•	No permitas que un usuario de otra clínica acceda a documentos de pacientes ajenos.
+•	Registra los accesos a documentos sensibles en  audit_logs .
+4.9 Políticas de rooms, horarios, excepciones y bloqueos
+Crea políticas para:
+•	Leer horarios.
+•	Crear horarios.
+•	Editar horarios.
+•	Eliminar horarios.
+•	Gestionar excepciones.
+•	Gestionar bloqueos.
+•	Gestionar consultorios.
+Solo usuarios con  schedules.manage  pueden modificar horarios, excepciones y bloqueos.
+Los usuarios de la clínica pueden leer los horarios necesarios para consultar disponibilidad.
+4.10 Políticas de appointments
+Crea políticas separadas para:
+
+-- appointments.select
+-- appointments.insert
+-- appointments.update
+-- appointments.delete
+
+Reglas:
+•	Un dentista puede ver sus propias citas.
+•	Un dentista puede modificar sus propias citas.
+•	Un dentista solo puede modificar citas de otros profesionales si tiene el permiso  appointments.manage_others .
+•	Recepción puede crear, editar, reprogramar y cancelar citas si tiene los permisos correspondientes.
+•	Solo usuarios autorizados pueden eliminar citas.
+•	Toda modificación debe quedar registrada en  appointment_status_history  y  audit_logs .
+4.11 Políticas de WhatsApp
+Crea políticas para:
+•	Leer conversaciones.
+•	Leer mensajes.
+•	Enviar mensajes.
+•	Usar plantillas.
+•	Gestionar plantillas.
+•	Ver registros de envíos.
+•	Reintentar mensajes fallidos.
+•	Gestionar automatizaciones.
+•	Acceder a configuración de Wawp.
+Reglas:
+•	Las conversaciones y mensajes deben estar limitados por  clinic_id .
+•	Un dentista solo puede ver conversaciones de sus pacientes, salvo permiso explícito.
+•	Solo usuarios con  whatsapp.send_message  pueden enviar mensajes.
+•	Solo usuarios con  whatsapp.manage_templates  pueden crear, editar o eliminar plantillas.
+•	Solo usuarios con  whatsapp.manage_automations  pueden modificar automatizaciones.
+•	Solo usuarios con  whatsapp.manage_webhook  pueden acceder a la configuración del webhook.
+•	No permitas que  anon  acceda a conversaciones, mensajes, plantillas, logs o configuración de Wawp.
+4.12 Políticas de settings y audit_logs
+•	Solo usuarios con  settings.view  pueden leer configuración.
+•	Solo usuarios con  settings.manage  pueden editar configuración.
+•	Solo usuarios con  audit.view  pueden leer auditoría.
+•	Solo usuarios con  audit.export  pueden exportar auditoría.
+•	No permitas que  anon  acceda a  settings  ni  audit_logs .
+PARTE 5 — GRANTS Y PRIVILEGIOS MÍNIMOS
+Después de crear las políticas RLS, revisa los permisos SQL.
+Aplica el principio de mínimo privilegio.
+No concedas  ALL PRIVILEGES  de forma indiscriminada.
+No concedas permisos de escritura a  anon  salvo que exista un flujo público justificado, validado y protegido.
+Revoca permisos innecesarios en tablas sensibles.
+
+Ejemplo:
+
+revoke all on public.patients from anon;
+revoke all on public.patient_documents from anon;
+revoke all on public.whatsapp_messages from anon;
+revoke all on public.message_templates from anon;
+revoke all on public.settings from anon;
+revoke all on public.audit_logs from anon;
+
+Ajusta los grants reales según las necesidades de la aplicación.
+No des por finalizada la base de datos sin revisar que cada rol tenga exactamente los permisos que necesita.
+
+PARTE 6 — FUNCIONES, TRIGGERS Y VISTAS
+Crea las funciones, triggers y vistas necesarias.
+6.1 Función de disponibilidad
+Crea una función  get_available_slots  que reciba:
+•	 clinic_id 
+•	 service_id 
+•	 professional_id  opcional
+•	 room_id  opcional
+•	fecha o rango de fechas
+•	duración requerida
+Y devuelva únicamente los huecos disponibles según:
+•	Horario general de la clínica.
+•	Horario del profesional.
+•	Horario del consultorio.
+•	Citas existentes.
+•	Bloqueos.
+•	Vacaciones.
+•	Festivos.
+•	Excepciones.
+•	Reglas de reserva.
+La función debe usar  security invoker  por defecto.
+Si usa  security definer , fija  search_path  y concede permisos mínimos.
+
+6.2 Trigger para evitar solapamientos
+Crea un trigger o función que impida crear o mover una cita si:
+•	El profesional ya tiene otra cita en el mismo intervalo.
+•	El consultorio ya está ocupado.
+•	La cita está fuera del horario permitido.
+•	La cita coincide con un bloqueo, vacaciones o excepción.
+
+6.3 Trigger para historial de citas
+Crea un trigger que inserte automáticamente un registro en  appointment_status_history  cuando cambie el estado de una cita.
+
+6.4 Trigger para auditoría
+Crea triggers o funciones para registrar cambios en:
+•	Pacientes.
+•	Citas.
+•	Usuarios.
+•	Roles.
+•	Permisos.
+•	Horarios.
+•	Plantillas.
+•	Configuración.
+6.5 Vistas
+No crees vistas públicas que expongan datos sensibles.
+Si creas vistas, habilita RLS y crea políticas RLS para ellas.
+PARTE 7 — SUPABASE STORAGE
+Crea y configura Supabase Storage.
+No uses buckets públicos para documentos clínicos, documentos de identidad, historiales, conversaciones o archivos privados.
+
+7.1 Buckets requeridos
+Crea estos buckets:
+clinic-public-assets
+  - Logotipos, imágenes de la web, imágenes de servicios y recursos públicos.
+
+patient-documents
+  - Documentos privados de pacientes.
+  - Informes, radiografías, consentimientos y archivos clínicos.
+
+patient-avatars
+  - Avatares privados de pacientes.
+
+professional-avatars
+  - Avatares y fotos públicas o internas de profesionales.
+
+whatsapp-media
+  - Imágenes, audios, vídeos y documentos recibidos o enviados por WhatsApp.
+
+internal-documents
+  - Documentos internos de la clínica.
+
+7.2 Configuración de buckets
+Crea los buckets mediante migración SQL o mediante el panel de Supabase.
+Ejemplo de migración:
+insert into storage.buckets (id, name, public)
+values
+  ('clinic-public-assets', 'clinic-public-assets', true),
+  ('patient-documents', 'patient-documents', false),
+  ('patient-avatars', 'patient-avatars', false),
+  ('professional-avatars', 'professional-avatars', false),
+  ('whatsapp-media', 'whatsapp-media', false),
+  ('internal-documents', 'internal-documents', false)
+on conflict (id) do nothing;
+
+7.3 Políticas RLS de Storage
+Crea políticas RLS sobre  storage.objects  para cada bucket y operación.
+Supabase indica que, por defecto, Storage no permite subidas sin políticas RLS y que las políticas deben crearse sobre  storage.objects  para  SELECT ,  INSERT ,  UPDATE  y  DELETE . 
+Ejemplo para documentos privados de pacientes:
+create policy "Authenticated clinic users can read patient documents"
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'patient-documents'
+  and exists (
+    select 1
+    from public.patient_documents pd
+    join public.profiles p on p.clinic_id = pd.clinic_id
+    where pd.storage_path = name
+      and p.id = auth.uid()
+  )
+);
+
+create policy "Authorized clinic users can upload patient documents"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'patient-documents'
+  and exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and exists (
+        select 1
+        from public.user_roles ur
+        join public.roles r on r.id = ur.role_id
+        join public.role_permissions rp on rp.role_id = r.id
+        join public.permissions perm on perm.id = rp.permission_id
+        where ur.user_id = auth.uid()
+          and perm.slug = 'patients.manage_documents'
+      )
+  )
+);
+
+No copies estas políticas sin adaptarlas a la estructura real de rutas, metadatos y permisos del proyecto.
+7.4 Reglas de Storage
+•	Los documentos de pacientes deben ser privados.
+•	El acceso debe realizarse mediante URLs firmadas y temporales.
+•	No permitas listar archivos privados desde el frontend.
+•	Valida tipo, tamaño y nombre de archivo antes de subir.
+•	Restringe las extensiones permitidas según el bucket.
+•	Usa rutas que incluyan  clinic_id ,  patient_id  y un identificador único.
+•	No permitas que un usuario de una clínica acceda a archivos de otra clínica.
+•	Registra descargas y accesos sensibles en  audit_logs .
+PARTE 8 — SEED INICIAL
+Crea un seed seguro con datos de ejemplo.
+Incluye:
+•	Una clínica de prueba.
+•	Roles: Superadmin, Administrador, Recepción, Dentista, Recepcionista limitado y Solo lectura.
+•	Permisos granulares.
+•	Servicios dentales de ejemplo.
+•	Un Superadmin de prueba.
+•	Un administrador de prueba.
+•	Un dentista de prueba.
+•	Un recepcionista de prueba.
+•	Horarios de ejemplo.
+•	Las cuatro plantillas iniciales de WhatsApp.
+No incluyas:
+•	Contraseñas reales.
+•	Tokens reales.
+•	API keys reales.
+•	Datos personales reales.
+•	Credenciales de Wawp reales.
+PARTE 9 — TESTS DE RLS Y SEGURIDAD
+Crea tests automatizados con pgTAP en  supabase/tests/ .
+Crea tests para cada tabla sensible que validen:
+•	Qué puede hacer  anon .
+•	Qué puede hacer  authenticated .
+•	Qué puede hacer cada rol.
+•	Qué puede hacer un usuario de otra clínica.
+•	Qué puede hacer un dentista sobre sus propias citas.
+•	Qué puede hacer un dentista sobre citas de otros profesionales.
+•	Qué puede hacer un usuario sin permisos sobre pacientes.
+•	Qué puede hacer un usuario sin permisos sobre historial clínico.
+•	Qué puede hacer un usuario sin permisos sobre documentos.
+•	Qué puede hacer un usuario sin permisos sobre conversaciones WhatsApp.
+•	Qué puede hacer un usuario sin permisos sobre configuración de Wawp.
+•	Qué puede hacer un usuario sin permisos sobre usuarios, roles y permisos.
+•	Qué ocurre al intentar insertar, actualizar o eliminar sin permisos.
+•	Qué ocurre al intentar acceder a datos de otra clínica.
+Ejecuta:
+supabase db lint
+supabase db advisors --type security
+supabase db advisors --type performance
+supabase test db
+
+El objetivo es:
+•	Cero errores de seguridad.
+•	Cero advertencias críticas de seguridad.
+•	Cero tablas expuestas sin RLS.
+•	Cero políticas permisivas innecesarias.
+•	Cero funciones inseguras.
+•	Cero vistas inseguras.
+•	Cero permisos excesivos.
+•	Cero secretos expuestos.
+PARTE 10 — INTEGRACIÓN CON EL BACKEND
+Integra la base de datos con el backend Node.js.
+Requisitos:
+•	Usa Supabase JS Client para operaciones del backend con el rol adecuado.
+•	Usa la clave  anon  solo cuando sea estrictamente necesario.
+•	Usa la clave  service_role  únicamente en el backend y para operaciones administrativas controladas.
+•	Nunca expongas  service_role ,  WAWP_ACCESS_TOKEN ,  WAWP_INSTANCE_ID  ni  WAWP_WEBHOOK_SECRET  desde el frontend.
+•	Valida permisos en el backend además de RLS.
+•	Usa Zod para validar DTOs.
+•	Usa transacciones o funciones SQL para operaciones críticas.
+•	Implementa idempotencia en webhooks y envíos.
+•	Implementa reintentos con backoff para fallos de Wawp.
+•	Usa Supabase Realtime para actualizar la agenda y conversaciones en tiempo real.
+•	Registra acciones sensibles en  audit_logs .
+PARTE 11 — INTEGRACIÓN CON FRONTEND Y APP MÓVIL
+Integra la base de datos con el frontend web y la app móvil.
+Requisitos:
+•	El frontend nunca debe llamar directamente a Wawp.
+•	El frontend debe usar la API del backend para operaciones sensibles.
+•	La app móvil debe usar Supabase Auth para autenticación.
+•	La app móvil debe acceder únicamente a los datos autorizados por RLS.
+•	La web pública debe leer horarios, servicios y datos públicos mediante endpoints seguros.
+•	La agenda debe actualizarse en tiempo real mediante Supabase Realtime.
+•	Los documentos privados deben abrirse mediante URLs firmadas temporales.
+•	Implementa manejo de errores, estados de carga y mensajes claros.
+PARTE 12 — DESPLIEGUE A PRODUCCIÓN
+Crea un plan completo de despliegue.
+12.1 Preparación local
+Ejecuta:
+supabase start
+supabase db reset
+supabase db lint
+supabase db advisors --type security
+supabase db advisors --type performance
+supabase test db
+
+Corrige todos los errores y advertencias antes de continuar.
+12.2 Conexión del proyecto remoto
+Ejecuta:
+supabase login
+supabase link --project-ref TU_PROJECT_REF
+
+12.3 Sincronización del esquema remoto
+Si la base de datos remota ya tiene cambios que no están en las migraciones locales, ejecuta:
+supabase db pull --remote
+supabase db reset
+
+Supabase recomienda usar  db pull  para capturar cambios remotos y  db reset  para reaplicar las migraciones localmente y confirmar la consistencia. 
+12.4 Despliegue de migraciones
+Ejecuta:
+supabase db push --remote
+
+Si necesitas aplicar también el seed:
+supabase db push --include-seed --remote
+
+Supabase documenta  supabase db push --remote  para aplicar migraciones locales al proyecto remoto vinculado. 
+12.5 Variables de entorno de producción
+Configura estas variables en el servidor o plataforma de despliegue:
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_JWT_SECRET=
+
+DATABASE_URL=
+
+WAWP_DRIVER=api
+WAWP_BASE_URL=[https://api.wawp.net](https://api.wawp.net)
+WAWP_ACCESS_TOKEN=
+WAWP_INSTANCE_ID=
+WAWP_APP_TIMEZONE=Europe/Madrid
+WAWP_TUNNEL_URL=
+WAWP_WEBHOOK_SECRET=
+
+APP_URL=
+API_URL=
+WEBHOOK_URL=
+
+NODE_ENV=production
+
+No incluyas valores reales en el repositorio.
+Usa un gestor de secretos o variables de entorno seguras del servidor.
+12.6 Configuración del webhook de Wawp
+Configura la URL pública del webhook:
+[https://TU_DOMINIO/api/wawp/webhook](https://TU_DOMINIO/api/wawp/webhook)
+
+O, durante desarrollo:
+[https://UN_TUNEL_GROK.ngrok-free.dev/api/wawp/webhook?secret=un-secreto](https://UN_TUNEL_GROK.ngrok-free.dev/api/wawp/webhook?secret=un-secreto)
+
+Requisitos:
+•	Usa HTTPS obligatorio en producción.
+•	Valida el secreto mediante  WAWP_WEBHOOK_SECRET .
+•	Implementa idempotencia.
+•	Devuelve respuestas rápidas para evitar timeouts.
+•	Registra todos los eventos en  webhook_events .
+•	No expongas errores internos ni datos sensibles.
+
+12.7 Despliegue del backend
+Opciones recomendadas:
+•	VPS con Docker, Nginx y PM2 o systemd.
+•	Railway, Render, Fly.io o similar.
+•	Docker Compose para servidor propio.
+Requisitos:
+•	Node.js 20 LTS o superior.
+•	HTTPS con certificado válido.
+•	Reverse proxy Nginx o Caddy.
+•	Rate limiting.
+•	Logs estructurados.
+•	Reinicio automático.
+•	Health check endpoint.
+•	Backup automático de base de datos.
+•	Monitorización de errores.
+•	Rotación de logs.
+
+12.8 Despliegue del frontend web
+Opciones recomendadas:
+•	Vercel.
+•	Netlify.
+•	Cloudflare Pages.
+•	Nginx con build estático en VPS.
+Requisitos:
+•	Variables de entorno de producción.
+•	Dominio propio.
+•	HTTPS.
+•	Headers de seguridad.
+•	Compresión y caché.
+•	Sitemap y robots.txt.
+•	Lighthouse superior a 90.
+
+12.9 Despliegue de la app móvil
+Opciones recomendadas:
+•	Expo EAS Build.
+•	Google Play Store.
+•	Apple App Store.
+Requisitos:
+•	Variables de entorno de producción.
+•	Certificados y firmas correctas.
+•	Permisos de notificaciones push.
+•	Deep links seguros.
+•	Control de versiones.
+•	Pruebas en dispositivos reales.
+
+12.10 Post-despliegue
+Ejecuta:
+•	Pruebas de login.
+•	Pruebas de creación de paciente.
+•	Pruebas de creación de cita.
+•	Pruebas de movimiento de cita en el calendario.
+•	Pruebas de envío de WhatsApp.
+•	Pruebas de webhook de Wawp.
+•	Pruebas de recordatorios automáticos.
+•	Pruebas de permisos por rol.
+•	Pruebas de acceso cruzado entre clínicas.
+•	Pruebas de descarga de documentos privados.
+•	Revisión del Security Advisor.
+•	Revisión de logs y errores.
+
+PARTE 13 — ENTREGABLES
+Genera:
+1.	Migraciones SQL completas para crear todas las tablas.
+2.	Políticas RLS completas para cada tabla.
+3.	Grants y revocaciones necesarias.
+4.	Índices para RLS y consultas.
+5.	Funciones, triggers y vistas seguras.
+6.	Buckets y políticas de Supabase Storage.
+7.	Seed inicial seguro.
+8.	Tests de RLS con pgTAP.
+9.	Comandos de linting, advisors y tests.
+10.	Módulo backend  wawp .
+11.	Endpoints del backend.
+12.	Integración con frontend y app móvil.
+13.	Plan de despliegue completo.
+14.	Documentación de seguridad y despliegue en español.
+La documentación debe incluir:
+•	Diagrama de arquitectura.
+•	Mapa de tablas y relaciones.
+•	Mapa de roles y permisos.
+•	Explicación de cada política RLS.
+•	Explicación de cada bucket de Storage.
+•	Explicación del webhook de Wawp.
+•	Variables de entorno.
+•	Comandos de desarrollo y producción.
+•	Checklist de seguridad.
+•	Checklist de despliegue.
+•	Plan de rollback.
+
+PARTE 14 — CRITERIO DE ACEPTACIÓN
+La base de datos y el despliegue solo pueden considerarse completos cuando:
+•	Todas las tablas expuestas tienen RLS habilitado.
+•	Todas las tablas expuestas tienen políticas RLS explícitas.
+•	Todas las operaciones críticas tienen políticas separadas cuando corresponde.
+•	Todos los roles tienen privilegios mínimos.
+•	No existen políticas  USING (true)  ni  WITH CHECK (true)  innecesarias.
+•	No hay acceso cruzado entre clínicas.
+•	No hay acceso no autorizado a datos clínicos, documentos, WhatsApp, usuarios, roles, configuración o auditoría.
+•	No hay secretos ni credenciales expuestos.
+•	No hay funciones inseguras.
+•	No hay vistas inseguras.
+•	Los índices cubren las columnas utilizadas por RLS.
+•	Los buckets sensibles son privados.
+•	Los documentos privados usan URLs firmadas temporales.
+•	Los tests de RLS pasan correctamente.
+•	 supabase db lint  no devuelve errores de seguridad.
+•	 supabase db advisors --type security  no devuelve incidencias críticas.
+•	 supabase db advisors --type performance  no devuelve incidencias evitables.
+•	El backend, frontend y app móvil funcionan correctamente con la base de datos.
+•	El despliegue a producción está documentado y probado.
+No des por finalizada la base de datos mientras exista cualquier error o advertencia de seguridad que pueda corregirse.
+
+## Nota sobre RLS
+
+Supabase recomienda crear una política por operación —`SELECT`, `INSERT`, `UPDATE` y `DELETE`—, especificar siempre el rol con `TO`, usar `WITH CHECK` en inserciones y actualizaciones, y añadir índices a las columnas usadas por las políticas. También recomienda revocar grants por defecto y conceder solo los privilegios necesarios.[1]
+
+## Nota sobre Storage
+
+Las políticas de Storage deben crearse sobre `storage.objects`, especificando bucket, rol y operación. Supabase permite restringir por `bucket_id` y carpeta, y recomienda usar URLs firmadas para archivos privados.[2]
+
+## Nota sobre despliegue
+
+El flujo recomendado es crear migraciones locales, validarlas con `supabase db reset`, ejecutar linting y tests, vincular el proyecto con `supabase link` y aplicar las migraciones con `supabase db push --remote`. Supabase también permite incluir el seed durante el despliegue con `--include-seed`.

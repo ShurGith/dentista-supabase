@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Paleta de marca (RGB). Valores por defecto = turquesa; brandTheme.ts los sustituye por el color de Configuración. */
+  --brand-50: 240 253 250;
+  --brand-100: 204 251 241;
+  --brand-200: 153 246 228;
+  --brand-300: 94 234 212;
+  --brand-400: 45 212 191;
+  --brand-500: 20 184 166;
+  --brand-600: 13 148 136;
+  --brand-700: 15 118 110;
+  --brand-800: 17 94 89;
+  --brand-900: 19 78 74;
+}
+
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom styling for FullCalendar */
+.fc {
+  font-family: inherit;
+  --fc-border-color: #e2e8f0;
+  --fc-today-bg-color: rgb(var(--brand-50));
+  --fc-event-border-color: transparent;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.fc .fc-button-primary {
+  background-color: rgb(var(--brand-600));
+  border-color: rgb(var(--brand-600));
+  font-weight: 600;
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.85rem;
+  text-transform: capitalize;
+}
+
+.fc .fc-button-primary:hover {
+  background-color: rgb(var(--brand-700));
+  border-color: rgb(var(--brand-700));
+}
+
+.fc .fc-button-primary:disabled {
+  background-color: #94a3b8;
+  border-color: #94a3b8;
+}
+
+.fc .fc-button-active {
+  background-color: rgb(var(--brand-800)) !important;
+  border-color: rgb(var(--brand-800)) !important;
+}
+
+.fc-event {
+  border-radius: 6px;
+  padding: 2px 4px;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  font-size: 0.82rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.fc-event:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Horas y días fuera del horario de apertura: bloqueados (no se crean ni se mueven citas ahí) */
+.fc .fc-non-business {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgb(241 245 249 / 0.9) 0 6px,
+    rgb(226 232 240 / 0.9) 6px 7px
+  );
+}
+.fc .fc-timegrid-col.fc-day-today .fc-non-business,
+.fc .fc-daygrid-day.fc-day-today .fc-non-business {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgb(var(--brand-50) / 0.9) 0 6px,
+    rgb(var(--brand-100) / 0.9) 6px 7px
+  );
+}
+
+/* En móvil la barra de FullCalendar se reparte en varias líneas en vez de desbordar */
+@media (max-width: 639px) {
+  .fc .fc-toolbar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .fc .fc-toolbar-title {
+    font-size: 1rem;
+  }
+  .fc .fc-button {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.75rem;
+  }
+}
+
+.fc-theme-standard td, .fc-theme-standard th {
+  border-color: #e2e8f0;
+}
+
