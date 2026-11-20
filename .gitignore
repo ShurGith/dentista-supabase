@@ -15,3 +15,7 @@ test.http
 docker-compose.override.yml
 .supabase-version
 backups
+.env
+.env.local
+.env.backup
+.env.old
